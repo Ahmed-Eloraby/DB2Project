@@ -2,8 +2,10 @@ import java.io.*;
 import java.util.HashMap;
 import java.util.Hashtable;
 import java.util.Iterator;
+import java.util.Properties;
 
 public class DBApp implements DBAppInterface{
+    static final int N= 200;
     HashMap<String,HashMap<String, String>>tableData = new HashMap<String,HashMap<String, String>>();
     @Override
     public void   init() {
@@ -20,6 +22,8 @@ public class DBApp implements DBAppInterface{
 //        } catch (IOException e) {
 //            e.printStackTrace();
 //        }
+
+
         try {
             FileWriter csvWriter  = new FileWriter("resources/metadata.csv");
             csvWriter.append("Table Name");
@@ -55,7 +59,7 @@ public class DBApp implements DBAppInterface{
                 csvWriter.append(",");
                 csvWriter.append(colNameType.get(s));
                 csvWriter.append(",");
-                csvWriter.append(clusteringKey == s ? "true":"false");
+                csvWriter.append(clusteringKey.equals(s) ? "true":"false");
                 csvWriter.append(",");
                 csvWriter.append("free");
                 csvWriter.append(",");
