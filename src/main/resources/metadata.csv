@@ -1,4 +1,1 @@
 Table Name,Column Name,Column Type,ClusteringKey,Indexed,min,max
-Student,gpa,java.lang.double,false,free,0.7,4
-Student,name,java.lang.String,false,free,a,z
-Student,id,java.lang.Integer,true,free,0,9

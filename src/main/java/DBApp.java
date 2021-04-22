@@ -10,27 +10,29 @@ public class DBApp implements DBAppInterface {
     HashMap<String, HashMap<String, String>> tableData = new HashMap<String, HashMap<String, String>>();
 
     public static void main(String[] args) throws DBAppException, NoSuchMethodException {
-//        String strTableName = "Student";
+        String strTableName = "Student3";
         DBApp dbApp = new DBApp();
-//        dbApp.init();
-//        Hashtable htblColNameType = new Hashtable();
-//
-//        htblColNameType.put("id", "java.lang.Integer");
-//        htblColNameType.put("name", "java.lang.String");
-//        htblColNameType.put("gpa", "java.lang.double");
-//
-//        Hashtable min = new Hashtable();
-//        min.put("id", "0");
-//        min.put("name", "a");
-//        min.put("gpa", "0.7");
-//
-//        Hashtable max = new Hashtable();
-//        max.put("id", "9");
-//        max.put("name", "z");
-//        max.put("gpa", "4");
-//
-//
-//        dbApp.createTable(strTableName, "id", htblColNameType, min, max);
+        Hashtable htblColNameType = new Hashtable();
+
+        htblColNameType.put("id", "java.lang.Integer");
+        htblColNameType.put("name", "java.lang.String");
+        htblColNameType.put("gpa", "java.lang.double");
+
+        Hashtable min = new Hashtable();
+        min.put("id", "0");
+        min.put("name", "a");
+        min.put("gpa", "0.7");
+
+        Hashtable max = new Hashtable();
+        max.put("id", "9");
+        max.put("name", "z");
+        max.put("gpa", "4");
+
+
+        dbApp.createTable(strTableName, "id", htblColNameType, min, max);
+//        Hashtable<String,Integer> hs = new Hashtable();
+//        System.out.println(hs.get("sadasfd"));
+
 
     }
 
@@ -63,6 +65,28 @@ public class DBApp implements DBAppInterface {
     @Override
     public void createTable(String tableName, String clusteringKey, Hashtable<String, String> colNameType, Hashtable<String, String> colNameMin, Hashtable<String, String> colNameMax) throws DBAppException {
         if (!tableExists(tableName)) {
+            for (Object s: colNameType.keySet())
+            {
+                if(colNameType.get(s).equals("java.lang.Integer"))
+                {
+                    continue;
+                }
+                else if(colNameType.get(s).equals("java.lang.String"))
+                {
+                    continue;
+                }
+                else if(colNameType.get(s).equals("java.lang.Double"))
+                {
+                    continue;
+                }
+                else if(colNameType.get(s).equals("java.util.Date"))
+                {
+                    continue;
+                }
+                else
+                    throw new DBAppException("Column " + s + " has an invalid datatype.");
+            }
+
             try {
                 FileWriter csvWriter = new FileWriter("src/main/resources/metadata.csv", true);
                 for (String s : colNameType.keySet()) {
@@ -80,6 +104,7 @@ public class DBApp implements DBAppInterface {
                     csvWriter.append(",");
                     csvWriter.append(colNameMax.get(s));
                     csvWriter.append("\n");
+                    Table tem = new Table(tableName);
                 }
                 csvWriter.flush();
                 csvWriter.close();
@@ -201,9 +226,15 @@ public class DBApp implements DBAppInterface {
                         if ((svalue.compareTo(smin)) < 0) {
                             throw new DBAppException("Value Inserted is less than minimum allowed for" + columnName);
                         }
+                        if(smin.length() > svalue.length()){
+                            throw new DBAppException("Value length Inserted is less than minimum allowed for" + columnName);
+                        }
                         String smax = (String) (max);
                         if ((svalue.compareTo(smax)) > 0) {
                             throw new DBAppException("Value inserted is larger than maximum allowed for" + columnName);
+                        }
+                        if(smax.length() < svalue.length()){
+                            throw new DBAppException("Value length Inserted is larger than minimum allowed for" + columnName);
                         }
                     } else if (value instanceof java.util.Date) {
                         SimpleDateFormat sdformat = new SimpleDateFormat("yyyy-MM-dd");
@@ -216,13 +247,19 @@ public class DBApp implements DBAppInterface {
                             throw new DBAppException("Date inserted Occurs before minimum allowable Date");
                         }
                     }
-
-
                 } catch (Exception e) {
-
                 }
-                //if(value.compareTo())
             }
+            Hashtable<String,Object> allColValues = new Hashtable<String,Object>();
+            for(String s: colType.keySet()){
+                allColValues.put(s,colNameValue.get(s));
+            }
+           //CREATE tuple to be inserted
+            Tuple record = new Tuple((Comparable)allColValues.get(primaryKey),allColValues);
+            //FETCH Table info
+            Table t = deserializeTableInfo(tableName);
+
+
 
         } else {
             throw new DBAppException("Table Does Not Exist");
@@ -247,6 +284,57 @@ public class DBApp implements DBAppInterface {
     @Override
     public Iterator selectFromTable(SQLTerm[] sqlTerms, String[] arrayOperators) throws DBAppException {
         return null;
+    }
+
+    public void createPage() throws IOException {
+        Properties prop = new Properties();
+        String fileName = "src/main/resources/DBApp.config";
+        InputStream is = new FileInputStream(fileName);
+
+        prop.load(is);
+
+        int N =Integer.parseInt(prop.getProperty("MaximumRowsCountinPage"));
+        try {
+            Vector<Object> page = new Vector<Object>();
+            page.setSize(N);
+            ObjectOutputStream o = new
+                    ObjectOutputStream(
+                    new FileOutputStream("src/main/Pages/" + ".class"));
+            o.writeObject(page);
+            o.close();
+        } catch (IOException e) {
+            System.out.println(e);
+        }
+    }
+    public Table deserializeTableInfo(String name){
+        Table t = new Table("temp");
+        try
+        {
+            FileInputStream filein = new FileInputStream("src/main/TableInfo/" + name + ".class");
+            ObjectInputStream in = new ObjectInputStream(filein);
+            t = (Table) in.readObject();
+            in.close();
+            filein.close();
+        }
+        catch(IOException | ClassNotFoundException i)
+        {
+            i.printStackTrace();
+        }
+
+        return t;
+    }
+
+    private void serializeTableInfo(String name,Table t) {
+
+        try {
+            FileOutputStream fileout = new FileOutputStream("src/main/TableInfo/" + name + ".class");
+            ObjectOutputStream out = new ObjectOutputStream(fileout);
+            out.writeObject(this);
+            out.close();
+            fileout.close();
+        } catch (IOException i) {
+            i.printStackTrace();
+        }
     }
 
 }
