@@ -32,7 +32,6 @@ public class DBApp implements DBAppInterface {
 //
 //        dbApp.createTable(strTableName, "id", htblColNameType, min, max);
 
-
     }
 
     @Override
@@ -232,7 +231,12 @@ public class DBApp implements DBAppInterface {
 
     @Override
     public void updateTable(String tableName, String clusteringKeyValue, Hashtable<String, Object> columnNameValue) throws DBAppException {
+        if(tableExists(tableName)){
 
+
+        }else{
+            throw new DBAppException("Table Does Not Exist");
+        }
     }
 
     @Override
