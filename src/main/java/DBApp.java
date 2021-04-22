@@ -32,11 +32,12 @@ public class DBApp implements DBAppInterface {
 //
 //        dbApp.createTable(strTableName, "id", htblColNameType, min, max);
 
-        Hashtable htblColNameValue = new Hashtable();
-        htblColNameValue.put("id", new Integer(2343432));
-        htblColNameValue.put("name", new String("Ahmed Noor"));
-        htblColNameValue.put("gpa", new Double(0.95));
-        dbApp.insertIntoTable(strTableName, htblColNameValue);
+//        Hashtable htblColNameValue = new Hashtable();
+//        htblColNameValue.put("id", new Integer(2343432));
+//        htblColNameValue.put("name", new String("Ahmed Noor"));
+//        htblColNameValue.put("gpa", new Double(0.95));
+//       dbApp.insertIntoTable(strTableName, htblColNameValue);
+
 //        Hashtable<String,Integer> hs = new Hashtable();
 //        System.out.println(hs.get("sadasfd"));
 
@@ -271,19 +272,69 @@ public class DBApp implements DBAppInterface {
             Table t = deserializeTableInfo(tableName);
             if (t.getPageNames().isEmpty()) {
                 try {
-                    Vector<Tuple> pageBody = new Vector<>();
-                    pageBody.addElement(record);
+                    Vector<Tuple> newpageBody = new Vector<>();
+                    newpageBody.addElement(record);
                     t.getPageNames().addElement(createPage(t.getName(), t.getI()));
-                    serializePage(tableName + t.getI(), pageBody);
+                    serializePage(tableName + t.getI(), newpageBody);
                     t.setI(t.getI() + 1);
                     t.getMinPageValue().put(tableName + t.getI(), record.getClusteringKey());
                     serializeTableInfo(tableName, t);
                 } catch (IOException e) {
                     e.printStackTrace();
                 }
+            } else {
+                int lo = 0, hi = t.getI() - 1;
+                int j = 0;
+                while (lo < hi + 1) {
+                    if (t.getMinPageValue().get(t.getPageNames().elementAt(j)).compareTo(record.getClusteringKey()) > 0) {
+                        hi = j - 1;
+                    } else {
+                        lo = j;
+                    }
+                    j = (lo + hi) / 2;
+
+                }
+                if (lo + 1 == hi) {
+                    if (t.getMinPageValue().get(t.getPageNames().elementAt(hi)).compareTo(record.getClusteringKey()) > 0) {
+                        j = hi;
+                    } else {
+                        j = lo;
+                    }
+                }
+                String pageName = (String) t.getPageNames().elementAt(j);
+                Vector<Tuple> page = deserializePage(pageName);
+                page.addElement(record);
+                Collections.sort(page);
+                if (page.size() > N) {
+                    Tuple temp = page.lastElement();
+                    page.removeElementAt(N);
+                    j++;
+                    if (j < t.getI()) {
+                        Vector<Tuple> nextPage = deserializePage(tableName + j);
+                        if(nextPage.size() < N){
+                            nextPage.addElement(temp);
+                            Collections.sort(nextPage);
+                            serializePage(tableName + j,nextPage);
+                        }
+                        else{
+                            //OverFlow Page Linkage
+                        }
+                    } else {
+                        Vector<Tuple> newpageBody = new Vector<>();
+                        newpageBody.addElement(temp);
+                        try {
+                            t.getPageNames().addElement(createPage(t.getName(), t.getI()));
+                            serializePage(tableName + t.getI(), newpageBody);
+                            t.setI(t.getI() + 1);
+                            t.getMinPageValue().put(tableName + t.getI(), record.getClusteringKey());
+                            serializeTableInfo(tableName, t);
+                        } catch (IOException e) {
+                            e.printStackTrace();
+                        }
+                    }
+                }
+                serializePage(pageName, page);
             }
-
-
         } else {
             throw new DBAppException("Table Does Not Exist");
         }
