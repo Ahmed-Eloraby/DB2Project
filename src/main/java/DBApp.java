@@ -6,30 +6,37 @@ import java.text.SimpleDateFormat;
 import java.util.*;
 
 public class DBApp implements DBAppInterface {
-    static final int N = 200;
+    static int N = 0;
     HashMap<String, HashMap<String, String>> tableData = new HashMap<String, HashMap<String, String>>();
 
     public static void main(String[] args) throws DBAppException, NoSuchMethodException {
-        String strTableName = "Student3";
+        String strTableName = "Student";
         DBApp dbApp = new DBApp();
-        Hashtable htblColNameType = new Hashtable();
+//        Hashtable htblColNameType = new Hashtable();
+//
+//        htblColNameType.put("id", "java.lang.Integer");
+//        htblColNameType.put("name", "java.lang.String");
+//        htblColNameType.put("gpa", "java.lang.Double");
+//
+//        Hashtable min = new Hashtable();
+//        min.put("id", "0");
+//        min.put("name", "a");
+//        min.put("gpa", "0.7");
+//
+//        Hashtable max = new Hashtable();
+//        max.put("id", "9");
+//        max.put("name", "z");
+//        max.put("gpa", "4");
+//
+//
+//
+//        dbApp.createTable(strTableName, "id", htblColNameType, min, max);
 
-        htblColNameType.put("id", "java.lang.Integer");
-        htblColNameType.put("name", "java.lang.String");
-        htblColNameType.put("gpa", "java.lang.double");
-
-        Hashtable min = new Hashtable();
-        min.put("id", "0");
-        min.put("name", "a");
-        min.put("gpa", "0.7");
-
-        Hashtable max = new Hashtable();
-        max.put("id", "9");
-        max.put("name", "z");
-        max.put("gpa", "4");
-
-
-        dbApp.createTable(strTableName, "id", htblColNameType, min, max);
+        Hashtable htblColNameValue = new Hashtable();
+        htblColNameValue.put("id", new Integer(2343432));
+        htblColNameValue.put("name", new String("Ahmed Noor"));
+        htblColNameValue.put("gpa", new Double(0.95));
+        dbApp.insertIntoTable(strTableName, htblColNameValue);
 //        Hashtable<String,Integer> hs = new Hashtable();
 //        System.out.println(hs.get("sadasfd"));
 
@@ -38,6 +45,18 @@ public class DBApp implements DBAppInterface {
 
     @Override
     public void init() {
+        Properties prop = new Properties();
+        String fileName = "src/main/resources/DBApp.config";
+        InputStream is = null;
+        try {
+            is = new FileInputStream(fileName);
+            prop.load(is);
+            N = Integer.parseInt(prop.getProperty("MaximumRowsCountinPage"));
+        } catch (FileNotFoundException e) {
+            e.printStackTrace();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
         try {
             FileWriter csvWriter = new FileWriter("src/main/resources/metadata.csv", true);
             csvWriter.append("Table Name");
@@ -65,25 +84,16 @@ public class DBApp implements DBAppInterface {
     @Override
     public void createTable(String tableName, String clusteringKey, Hashtable<String, String> colNameType, Hashtable<String, String> colNameMin, Hashtable<String, String> colNameMax) throws DBAppException {
         if (!tableExists(tableName)) {
-            for (Object s: colNameType.keySet())
-            {
-                if(colNameType.get(s).equals("java.lang.Integer"))
-                {
+            for (Object s : colNameType.keySet()) {
+                if (colNameType.get(s).equals("java.lang.Integer")) {
                     continue;
-                }
-                else if(colNameType.get(s).equals("java.lang.String"))
-                {
+                } else if (colNameType.get(s).equals("java.lang.String")) {
                     continue;
-                }
-                else if(colNameType.get(s).equals("java.lang.Double"))
-                {
+                } else if (colNameType.get(s).equals("java.lang.Double")) {
                     continue;
-                }
-                else if(colNameType.get(s).equals("java.util.Date"))
-                {
+                } else if (colNameType.get(s).equals("java.util.Date")) {
                     continue;
-                }
-                else
+                } else
                     throw new DBAppException("Column " + s + " has an invalid datatype.");
             }
 
@@ -104,7 +114,8 @@ public class DBApp implements DBAppInterface {
                     csvWriter.append(",");
                     csvWriter.append(colNameMax.get(s));
                     csvWriter.append("\n");
-                    Table tem = new Table(tableName);
+                    Table temp = new Table(tableName);
+                    serializeTableInfo(tableName, temp);
                 }
                 csvWriter.flush();
                 csvWriter.close();
@@ -158,12 +169,12 @@ public class DBApp implements DBAppInterface {
                     String[] line = current.split(",");
                     if (line[0].equals(tableName)) {
                         do {
-                            if (line[3].equals(true)) {
+                            if (line[3].equals("true")) {
                                 primaryKey = line[1];
                             }
                             colType.put(line[1], line[2]);
-                            colmin.put(line[1], line[6]);
-                            colmax.put(line[1], line[7]);
+                            colmin.put(line[1], line[5]);
+                            colmax.put(line[1], line[6]);
                             current = br.readLine();
                             if (current != null) {
                                 line = current.split(",");
@@ -180,8 +191,8 @@ public class DBApp implements DBAppInterface {
             } catch (IOException e) {
                 e.printStackTrace();
             }
-            if (!colNameValue.keySet().contains(primaryKey)) {
-                throw new DBAppException("Primary Key Should Have A Value");
+            if (!(colNameValue.keySet()).contains(primaryKey)) {
+                throw new DBAppException("Primary Key Should Have a Value");
             }
             for (String columnName : colNameValue.keySet()) {
                 Object value = colNameValue.get(columnName);
@@ -226,19 +237,19 @@ public class DBApp implements DBAppInterface {
                         if ((svalue.compareTo(smin)) < 0) {
                             throw new DBAppException("Value Inserted is less than minimum allowed for" + columnName);
                         }
-                        if(smin.length() > svalue.length()){
+                        if (smin.length() > svalue.length()) {
                             throw new DBAppException("Value length Inserted is less than minimum allowed for" + columnName);
                         }
                         String smax = (String) (max);
                         if ((svalue.compareTo(smax)) > 0) {
                             throw new DBAppException("Value inserted is larger than maximum allowed for" + columnName);
                         }
-                        if(smax.length() < svalue.length()){
+                        if (smax.length() < svalue.length()) {
                             throw new DBAppException("Value length Inserted is larger than minimum allowed for" + columnName);
                         }
                     } else if (value instanceof java.util.Date) {
                         SimpleDateFormat sdformat = new SimpleDateFormat("yyyy-MM-dd");
-                        Date dvalue =sdformat.parse(String.valueOf(value));
+                        Date dvalue = sdformat.parse(String.valueOf(value));
                         Date dmin = sdformat.parse(String.valueOf(min));
                         Date dmax = sdformat.parse(String.valueOf(max));
                         if (dvalue.compareTo(dmax) > 0) {
@@ -250,15 +261,27 @@ public class DBApp implements DBAppInterface {
                 } catch (Exception e) {
                 }
             }
-            Hashtable<String,Object> allColValues = new Hashtable<String,Object>();
-            for(String s: colType.keySet()){
-                allColValues.put(s,colNameValue.get(s));
+            Hashtable<String, Object> allColValues = new Hashtable<String, Object>();
+            for (String s : colType.keySet()) {
+                allColValues.put(s, colNameValue.get(s));
             }
-           //CREATE tuple to be inserted
-            Tuple record = new Tuple((Comparable)allColValues.get(primaryKey),allColValues);
+            //CREATE tuple to be inserted
+            Tuple record = new Tuple((Comparable) allColValues.get(primaryKey), allColValues);
             //FETCH Table info
             Table t = deserializeTableInfo(tableName);
-
+            if (t.getPageNames().isEmpty()) {
+                try {
+                    Vector<Tuple> pageBody = new Vector<>();
+                    pageBody.addElement(record);
+                    t.getPageNames().addElement(createPage(t.getName(), t.getI()));
+                    serializePage(tableName + t.getI(), pageBody);
+                    t.setI(t.getI() + 1);
+                    t.getMinPageValue().put(tableName + t.getI(), record.getClusteringKey());
+                    serializeTableInfo(tableName, t);
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            }
 
 
         } else {
@@ -268,10 +291,10 @@ public class DBApp implements DBAppInterface {
 
     @Override
     public void updateTable(String tableName, String clusteringKeyValue, Hashtable<String, Object> columnNameValue) throws DBAppException {
-        if(tableExists(tableName)){
+        if (tableExists(tableName)) {
 
 
-        }else{
+        } else {
             throw new DBAppException("Table Does Not Exist");
         }
     }
@@ -286,55 +309,71 @@ public class DBApp implements DBAppInterface {
         return null;
     }
 
-    public void createPage() throws IOException {
-        Properties prop = new Properties();
-        String fileName = "src/main/resources/DBApp.config";
-        InputStream is = new FileInputStream(fileName);
-
-        prop.load(is);
-
-        int N =Integer.parseInt(prop.getProperty("MaximumRowsCountinPage"));
+    public String createPage(String name, int i) throws IOException {
         try {
-            Vector<Object> page = new Vector<Object>();
-            page.setSize(N);
             ObjectOutputStream o = new
                     ObjectOutputStream(
-                    new FileOutputStream("src/main/Pages/" + ".class"));
-            o.writeObject(page);
+                    new FileOutputStream("src/main/Pages/" + name + i + ".class"));
             o.close();
         } catch (IOException e) {
             System.out.println(e);
         }
+        return name + i;
     }
-    public Table deserializeTableInfo(String name){
-        Table t = new Table("temp");
-        try
-        {
+
+    private void serializeTableInfo(String name, Table t) {
+
+        try {
+            FileOutputStream fileout = new FileOutputStream("src/main/TableInfo/" + name + ".class");
+            ObjectOutputStream out = new ObjectOutputStream(fileout);
+            out.writeObject(t);
+            out.close();
+            fileout.close();
+        } catch (IOException i) {
+            i.printStackTrace();
+        }
+    }
+
+    public Table deserializeTableInfo(String name) {
+        Table t = null;
+        try {
             FileInputStream filein = new FileInputStream("src/main/TableInfo/" + name + ".class");
             ObjectInputStream in = new ObjectInputStream(filein);
             t = (Table) in.readObject();
             in.close();
             filein.close();
-        }
-        catch(IOException | ClassNotFoundException i)
-        {
+        } catch (IOException | ClassNotFoundException i) {
             i.printStackTrace();
         }
 
         return t;
     }
 
-    private void serializeTableInfo(String name,Table t) {
-
+    private void serializePage(String name, Vector<Tuple> pageBody) {
         try {
-            FileOutputStream fileout = new FileOutputStream("src/main/TableInfo/" + name + ".class");
+            FileOutputStream fileout = new FileOutputStream("src/main/Pages/" + name + ".class");
             ObjectOutputStream out = new ObjectOutputStream(fileout);
-            out.writeObject(this);
+            out.writeObject(pageBody);
             out.close();
             fileout.close();
         } catch (IOException i) {
             i.printStackTrace();
         }
+    }
+
+    public Vector<Tuple> deserializePage(String name) {
+        Vector<Tuple> v = null;
+        try {
+            FileInputStream filein = new FileInputStream("src/main/TableInfo/" + name + ".class");
+            ObjectInputStream in = new ObjectInputStream(filein);
+            v = (Vector<Tuple>) in.readObject();
+            in.close();
+            filein.close();
+        } catch (IOException | ClassNotFoundException i) {
+            i.printStackTrace();
+        }
+
+        return v;
     }
 
 }
