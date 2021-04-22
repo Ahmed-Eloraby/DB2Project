@@ -87,6 +87,9 @@ public class DBApp implements DBAppInterface {
                 e.printStackTrace();
             }
         }
+        else
+            throw new DBAppException("Table name exists before");
+
     }
 
     private boolean tableExists(String tableName) {
