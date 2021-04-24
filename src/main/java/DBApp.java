@@ -3,6 +3,7 @@ import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
+import java.time.LocalDateTime;
 import java.util.*;
 
 public class DBApp implements DBAppInterface {
@@ -267,66 +268,54 @@ public class DBApp implements DBAppInterface {
                 allColValues.put(s, colNameValue.get(s));
             }
             //CREATE tuple to be inserted
-            Tuple record = new Tuple((Comparable) allColValues.get(primaryKey), allColValues);
+            Tuple newEntry = new Tuple((Comparable) allColValues.get(primaryKey), allColValues);
             //FETCH Table info
             Table t = deserializeTableInfo(tableName);
-            if (t.getPageNames().isEmpty()) {
+            if (t.getNumberOfPages()==0) {
                 try {
-                    Vector<Tuple> newpageBody = new Vector<>();
-                    newpageBody.addElement(record);
-                    t.getPageNames().addElement(createPage(t.getName(), t.getI()));
-                    serializePage(tableName + t.getI(), newpageBody);
-                    t.setI(t.getI() + 1);
-                    t.getMinPageValue().put(tableName + t.getI(), record.getClusteringKey());
+                    Vector<Tuple> newPageBody = new Vector<>();
+                    newPageBody.addElement(newEntry);
+                    String newPageName = createPage(t.getName());
+                    t.getPageNames().addElement(newPageName);
+                    serializePage(newPageName, newPageBody);
+                    t.setNumberOfPages(1);
+                    t.getMinPageValue().addElement(newEntry.getClusteringKey());
                     serializeTableInfo(tableName, t);
                 } catch (IOException e) {
                     e.printStackTrace();
                 }
             } else {
-                int lo = 0, hi = t.getI() - 1;
-                int j = 0;
-                while (lo < hi + 1) {
-                    if (t.getMinPageValue().get(t.getPageNames().elementAt(j)).compareTo(record.getClusteringKey()) > 0) {
-                        hi = j - 1;
-                    } else {
-                        lo = j;
-                    }
-                    j = (lo + hi) / 2;
-
-                }
-                if (lo + 1 == hi) {
-                    if (t.getMinPageValue().get(t.getPageNames().elementAt(hi)).compareTo(record.getClusteringKey()) > 0) {
-                        j = hi;
-                    } else {
-                        j = lo;
-                    }
-                }
-                String pageName = (String) t.getPageNames().elementAt(j);
+                int pageIndex = getPageIndex(newEntry.getClusteringKey(), t.getMinPageValue(),t.getNumberOfPages());
+                String pageName = (String) t.getPageNames().elementAt(pageIndex);
                 Vector<Tuple> page = deserializePage(pageName);
-                page.addElement(record);
+                int keyIndex = getKeyIndex(newEntry.getClusteringKey(),page);
+                if(keyIndex != -1){
+                    throw new DBAppException("Primary Key Already Exists");
+                }
+                page.addElement(newEntry);
                 Collections.sort(page);
                 if (page.size() > N) {
                     Tuple temp = page.lastElement();
                     page.removeElementAt(N);
-                    j++;
-                    if (j < t.getI()) {
-                        Vector<Tuple> nextPage = deserializePage(tableName + j);
+                    if (pageIndex < t.getNumberOfPages()-1) {
+                        Vector<Tuple> nextPage = deserializePage((String) t.getPageNames().elementAt(pageIndex));
                         if(nextPage.size() < N){
                             nextPage.addElement(temp);
                             Collections.sort(nextPage);
-                            serializePage(tableName + j,nextPage);
+                            serializePage((String) t.getPageNames().elementAt(pageIndex),nextPage);
                         }
                         else{
                             //OverFlow Page Linkage
                         }
                     } else {
-                        Vector<Tuple> newpageBody = new Vector<>();
-                        newpageBody.addElement(temp);
+                        Vector<Tuple> newPageBody = new Vector<>();
+                        newPageBody.addElement(temp);
                         try {
-                            t.getPageNames().addElement(createPage(t.getName(), t.getI()));
-                            serializePage(tableName + t.getI(), newpageBody);
-                            t.setI(t.getI() + 1);
-                            t.getMinPageValue().put(tableName + t.getI(), record.getClusteringKey());
+                            String newPageName = createPage(t.getName());
+                            t.getPageNames().addElement(newPageName);
+                            serializePage(newPageName, newPageBody);
+                            t.setNumberOfPages(1);
+                            t.getMinPageValue().addElement(temp.getClusteringKey());
                             serializeTableInfo(tableName, t);
                         } catch (IOException e) {
                             e.printStackTrace();
@@ -338,6 +327,51 @@ public class DBApp implements DBAppInterface {
         } else {
             throw new DBAppException("Table Does Not Exist");
         }
+    }
+
+    public int getKeyIndex(Comparable key, Vector<Tuple> keysInPage){
+        int lo = 0;
+        int hi = keysInPage.size()-1;
+        int i = (lo+hi)/2;
+
+        while(lo<hi){
+            if(key.compareTo(keysInPage.elementAt(i).getClusteringKey()) == 0 ){
+                return i;
+            }else if(key.compareTo(keysInPage.elementAt(i).getClusteringKey()) > 0 ){
+                hi = i-1;
+            }else{
+                lo=i+1;
+            }
+
+            i = (lo+hi)/2;
+        }
+        if(key.compareTo(keysInPage.elementAt(i).getClusteringKey()) == 0 ){
+            return i;
+        }
+        return -1;
+    }
+
+
+    public int getPageIndex(Comparable key, Vector<Comparable> minimumValueInPage, int numberOfPages){
+        int lo = 0, hi = numberOfPages;
+        int i = (lo+hi)/2;
+        while(lo<hi) {
+            if (i != numberOfPages - 1) {
+                if (((Comparable) (minimumValueInPage.elementAt(i))).compareTo(key) > 0) {
+                       hi = i-1;
+                }else{
+                    if(i!=numberOfPages-1){
+                        if(((Comparable) (minimumValueInPage.elementAt(i+1))).compareTo(key)>0){
+                                return i;
+                        }else{
+                            lo=hi+1;
+                        }
+                    }
+                }
+            }
+            i = (lo+hi)/2;
+        }
+        return i;
     }
 
     @Override
@@ -360,16 +394,18 @@ public class DBApp implements DBAppInterface {
         return null;
     }
 
-    public String createPage(String name, int i) throws IOException {
+    public String createPage(String TableName) throws IOException {
+        LocalDateTime now = LocalDateTime.now();
+        String pageName = TableName + now.getYear() + now.getDayOfYear() + now.getHour() + now.getMinute() + now.getSecond();
         try {
             ObjectOutputStream o = new
                     ObjectOutputStream(
-                    new FileOutputStream("src/main/Pages/" + name + i + ".class"));
+                    new FileOutputStream("src/main/Pages/" + pageName+ ".class"));
             o.close();
         } catch (IOException e) {
             System.out.println(e);
         }
-        return name + i;
+        return pageName;
     }
 
     private void serializeTableInfo(String name, Table t) {

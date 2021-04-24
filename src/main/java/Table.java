@@ -2,18 +2,18 @@ import java.io.*;
 import java.util.Hashtable;
 import java.util.Vector;
 
-public class Table implements Serializable {
+public class Table implements Serializable, Comparable {
     private String name;
-    private int i;
+    private int numberOfPages;
     private Vector<String> pageNames;
-    private Hashtable<String, Comparable> minPageValue;
+    private Vector<Comparable> minPageValue;
     private Hashtable<String, Vector<String>> overflow;
 
     public Table(String name) {
         this.name = name;
-        i = 1;
-        pageNames = new Vector<>();
-        minPageValue = new Hashtable();
+        numberOfPages = 0;
+        pageNames = new Vector<String>();
+        minPageValue = new Vector<Comparable>();
         overflow = new Hashtable<>();
     }
 
@@ -25,21 +25,24 @@ public class Table implements Serializable {
         return name;
     }
 
-    public int getI() {
-        return i;
+    public int getNumberOfPages() {
+        return numberOfPages;
     }
 
-    public void setI(int i) {
-        this.i = i;
+    public void setNumberOfPages(int increment) {
+        this.numberOfPages = this.numberOfPages + increment;
     }
 
     public Vector getPageNames() {
         return pageNames;
     }
 
-    public Hashtable<String, Comparable> getMinPageValue() {
+    public Vector<Comparable> getMinPageValue() {
         return minPageValue;
     }
 
-
+    @Override
+    public int compareTo(Object o) {
+        return this.getName().compareTo(((Table)o).getName());
+    }
 }
