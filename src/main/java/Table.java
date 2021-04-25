@@ -1,4 +1,5 @@
 import java.io.*;
+import java.util.ArrayList;
 import java.util.Hashtable;
 import java.util.Vector;
 
@@ -46,4 +47,10 @@ public class Table implements Serializable, Comparable {
         return this.getName().compareTo(((Table)o).getName());
     }
 
+    public static void main(String[] args) {
+        ArrayList<String> al = new ArrayList<String>();
+        al.add("test.txt");
+        File f = new File("src/main/Pages/test.txt");
+        f.delete();
+    }
 }

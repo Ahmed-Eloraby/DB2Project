@@ -1,7 +1,6 @@
 import java.io.*;
 import java.lang.reflect.Constructor;
-import java.lang.reflect.InvocationTargetException;
-import java.text.ParseException;
+
 import java.text.SimpleDateFormat;
 import java.time.LocalDateTime;
 import java.util.*;
@@ -386,7 +385,7 @@ public class DBApp implements DBAppInterface {
         String clusteringKeyValue = validateInput(tableName, columnNameValue, false);
         Table table = deserializeTableInfo(tableName);
         Vector<String> pageNames = table.getPageNames();
-        boolean checkIfDelete = false;
+        ArrayList<String> pagesToDelete = new ArrayList<>();
         //Looping over all pages
         page:
         for (String pageName : pageNames) {
@@ -394,7 +393,8 @@ public class DBApp implements DBAppInterface {
             Vector<Tuple> page = deserializePage(pageName);
             tuple:
             //Looping over all tuples in a page
-            for (Tuple tuple : page) {
+            for (int i = 0; i<page.size(); i++ ) {
+                Tuple tuple = page.elementAt(i);
                 Hashtable<String, Comparable> entries = tuple.getEntries();
                 //Looping over every column in a tuple
                 field:
@@ -402,11 +402,28 @@ public class DBApp implements DBAppInterface {
                     if (((Comparable) columnNameValue.get(columnName)).compareTo(entries.get(columnName)) != 0)
                         continue tuple;
                 }
-                checkIfDelete = true;
                 //delete row:
-
+                page.removeElementAt(i);
             }
-            //delete page
+            //update the page:
+            if(page.isEmpty()){
+                //delete the page:
+                pagesToDelete.add(pageName);
+            }
+            else{
+                //page is not empty
+                int i = pageNames.indexOf(pageName);
+                table.getMinPageValue().setElementAt( page.firstElement().getClusteringKey(),i);
+                serializePage(pageName,page);
+            }
+        }
+        for(String s : pagesToDelete){
+            File f = new File("src/main/Pages/"+s+".class");
+            f.delete();
+            int i = pageNames.indexOf(s);
+            pageNames.removeElementAt(i);
+            table.getMinPageValue().removeElementAt(i);
+            table.setNumberOfPages(-1);
         }
     }
 
@@ -590,6 +607,7 @@ public class DBApp implements DBAppInterface {
                         }
                     }
                 } catch (Exception e) {
+
                 }
                 return primaryKey;
             }
