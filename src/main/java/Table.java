@@ -9,6 +9,7 @@ public class Table implements Serializable, Comparable {
     private Vector<String> pageNames;
     private Vector<Comparable> minPageValue;
     private Hashtable<String, Vector<String>> overflow;
+    private Hashtable<String, Vector<Comparable>> overflowMinimum;
 
     public Table(String name) {
         this.name = name;
@@ -16,6 +17,13 @@ public class Table implements Serializable, Comparable {
         pageNames = new Vector<String>();
         minPageValue = new Vector<Comparable>();
         overflow = new Hashtable<>();
+        overflowMinimum = new Hashtable<>();
+    }
+
+
+
+    public Hashtable<String, Vector<Comparable>> getOverflowMinimum() {
+        return overflowMinimum;
     }
 
     public Hashtable<String, Vector<String>> getOverflow() {
@@ -44,13 +52,6 @@ public class Table implements Serializable, Comparable {
 
     @Override
     public int compareTo(Object o) {
-        return this.getName().compareTo(((Table)o).getName());
-    }
-
-    public static void main(String[] args) {
-        ArrayList<String> al = new ArrayList<String>();
-        al.add("test.txt");
-        File f = new File("src/main/Pages/test.txt");
-        f.delete();
+        return this.getName().compareTo(((Table) o).getName());
     }
 }

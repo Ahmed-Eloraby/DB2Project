@@ -48,7 +48,7 @@ public class DBApp implements DBAppInterface {
     public void init() {
         Properties prop = new Properties();
         String fileName = "src/main/resources/DBApp.config";
-        InputStream is ;
+        InputStream is;
         try {
             is = new FileInputStream(fileName);
             prop.load(is);
@@ -286,21 +286,46 @@ public class DBApp implements DBAppInterface {
                 Vector<Tuple> page = deserializePage(pageName);
                 int keyIndex = getKeyIndex(newEntry.getClusteringKey(), page);
                 if (keyIndex != -1) {
-                    throw new DBAppException("Primary Key Already Exists");
+                    //check OverFlow
+                    throw new DBAppException("Clustering Key Already Exists");
                 }
                 page.addElement(newEntry);
                 Collections.sort(page);
                 if (page.size() > N) {
                     Tuple temp = page.lastElement();
                     page.removeElementAt(N);
+                    //check if last page
                     if (pageIndex < t.getNumberOfPages() - 1) {
-                        Vector<Tuple> nextPage = deserializePage((String) t.getPageNames().elementAt(pageIndex));
+                        Vector<Tuple> nextPage = deserializePage((String) t.getPageNames().elementAt(pageIndex + 1));
                         if (nextPage.size() < N) {
+                            //insert in next page
                             nextPage.addElement(temp);
                             Collections.sort(nextPage);
+                            t.getMinPageValue().setElementAt(nextPage.firstElement().getClusteringKey(), 0);
                             serializePage((String) t.getPageNames().elementAt(pageIndex), nextPage);
                         } else {
-                            //OverFlow Page Linkage
+                            //insert in overFlow
+                            if (t.getOverflow().containsKey(pageName)) {
+
+                            } else {
+                                //No Previous OverFLow
+                                Vector<String> overFlowPagesNames = new Vector<>();
+                                Vector<Comparable> overFlowPagesMin = new Vector<>();
+                                String ofPageName;
+                                try {
+                                    ofPageName = createPage(tableName);
+                                    Vector<Tuple> ofPageBody = new Vector<>();
+                                    ofPageBody.addElement(temp);
+                                    overFlowPagesNames.addElement(ofPageName);
+                                    overFlowPagesMin.addElement(temp.getClusteringKey());
+                                    t.getOverflow().put(ofPageName,overFlowPagesNames);
+                                    t.getOverflowMinimum().put(ofPageName,overFlowPagesMin);
+                                    serializePage(ofPageName, ofPageBody);
+
+                                } catch (IOException e) {
+                                    e.printStackTrace();
+                                }
+                            }
                         }
                     } else {
                         Vector<Tuple> newPageBody = new Vector<>();
@@ -476,13 +501,13 @@ public class DBApp implements DBAppInterface {
             }
             Hashtable<String, Comparable> allColValues = new Hashtable<>();
             for (String s : colType.keySet()) {
-                allColValues.put(s,(Comparable) colNameValue.get(s));
+                allColValues.put(s, (Comparable) colNameValue.get(s));
             }
             //CREATE tuple to be inserted
             Tuple newEntry = new Tuple((Comparable) allColValues.get(primaryKey), allColValues);
             //FETCH Table info
             Table t = deserializeTableInfo(tableName);
-            if (t.getNumberOfPages()==0) {
+            if (t.getNumberOfPages() == 0) {
 
                 throw new DBAppException("This Table has no records to update");
 
@@ -499,8 +524,8 @@ public class DBApp implements DBAppInterface {
 
 
                 page.elementAt(keyIndex).setEntries(allColValues);
-                serializePage(pageName,page);
-                serializeTableInfo(t.getName(),t);
+                serializePage(pageName, page);
+                serializeTableInfo(t.getName(), t);
             }
 //                if (page.size() > N) {
 //                    Tuple temp = page.lastElement();
@@ -540,7 +565,7 @@ public class DBApp implements DBAppInterface {
 
     @Override
     public void deleteFromTable(String tableName, Hashtable<String, Object> columnNameValue) throws DBAppException {
-        String clusteringKeyValue = validateInput(tableName, columnNameValue, false);
+        Comparable clusteringValue = validateInput(tableName, columnNameValue, false);
         Table table = deserializeTableInfo(tableName);
         Vector<String> pageNames = table.getPageNames();
         ArrayList<String> pagesToDelete = new ArrayList<>();
@@ -551,7 +576,7 @@ public class DBApp implements DBAppInterface {
             Vector<Tuple> page = deserializePage(pageName);
             tuple:
             //Looping over all tuples in a page
-            for (int i = 0; i<page.size(); i++ ) {
+            for (int i = 0; i < page.size(); i++) {
                 Tuple tuple = page.elementAt(i);
                 Hashtable<String, Comparable> entries = tuple.getEntries();
                 //Looping over every column in a tuple
@@ -564,18 +589,17 @@ public class DBApp implements DBAppInterface {
                 page.removeElementAt(i);
             }
             //update the page:
-            if(page.isEmpty()){
+            if (page.isEmpty()) {
                 //delete the page:
                 pagesToDelete.add(pageName);
-            }
-            else{
+            } else {
                 //page is not empty
                 int i = pageNames.indexOf(pageName);
-                table.getMinPageValue().setElementAt( page.firstElement().getClusteringKey(),i);
-                serializePage(pageName,page);
+                table.getMinPageValue().setElementAt(page.firstElement().getClusteringKey(), i);
+                serializePage(pageName, page);
             }
         }
-        for(String s : pagesToDelete){
+        for (String s : pagesToDelete) {
             File f = new File("src/main/Pages/" + s + ".class");
             f.delete();
             int i = pageNames.indexOf(s);
@@ -659,7 +683,7 @@ public class DBApp implements DBAppInterface {
         return v;
     }
 
-    public String validateInput(String tableName, Hashtable<String, Object> colNameValue, boolean checkPrimaryKey) throws DBAppException {
+    public Comparable validateInput(String tableName, Hashtable<String, Object> colNameValue, boolean checkPrimaryKey) throws DBAppException {
         if (tableExists(tableName)) {
             Hashtable<String, String> colType = new Hashtable();
             Hashtable<String, String> colmin = new Hashtable();
@@ -767,7 +791,7 @@ public class DBApp implements DBAppInterface {
                 } catch (Exception e) {
 
                 }
-                return primaryKey;
+                return (Comparable) colNameValue.get(primaryKey);
             }
         } else {
             throw new DBAppException("Table Does Not Exist");
