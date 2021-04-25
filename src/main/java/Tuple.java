@@ -3,8 +3,8 @@ import java.util.Hashtable;
 
 public class Tuple implements Comparable, Serializable {
     private Comparable clusteringKey;
-    private Hashtable<String,Object> entries;
-    public Tuple(Comparable clusteringKey, Hashtable<String,Object> entries){
+    private Hashtable<String,Comparable> entries;
+    public Tuple(Comparable clusteringKey, Hashtable<String,Comparable> entries){
         this.clusteringKey = clusteringKey;
         this.entries = entries;
     }
@@ -13,7 +13,7 @@ public class Tuple implements Comparable, Serializable {
         return clusteringKey;
     }
 
-    public Hashtable<String, Object> getEntries() {
+    public Hashtable<String, Comparable> getEntries() {
         return entries;
     }
 
