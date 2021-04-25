@@ -282,18 +282,21 @@ public class DBApp implements DBAppInterface {
                 }
             } else {
                 int pageIndex = getPageIndex(newEntry.getClusteringKey(), t.getMinPageValue(), t.getNumberOfPages());
+                //page name
                 String pageName = (String) t.getPageNames().elementAt(pageIndex);
                 Vector<Tuple> page = deserializePage(pageName);
                 int keyIndex = getKeyIndex(newEntry.getClusteringKey(), page);
                 if (keyIndex != -1) {
-                    //check OverFlow
+                    //check over flow
                     throw new DBAppException("Clustering Key Already Exists");
                 }
-                page.addElement(newEntry);
-                Collections.sort(page);
-                if (page.size() > N) {
+                if(page.size() < N) {
+                    page.addElement(newEntry);
+                    Collections.sort(page);
+                    serializePage(pageName, page);
+                }
+                else {
                     Tuple temp = page.lastElement();
-                    page.removeElementAt(N);
                     //check if last page
                     if (pageIndex < t.getNumberOfPages() - 1) {
                         Vector<Tuple> nextPage = deserializePage((String) t.getPageNames().elementAt(pageIndex + 1));
@@ -303,14 +306,48 @@ public class DBApp implements DBAppInterface {
                             Collections.sort(nextPage);
                             t.getMinPageValue().setElementAt(nextPage.firstElement().getClusteringKey(), 0);
                             serializePage((String) t.getPageNames().elementAt(pageIndex), nextPage);
+                            page.addElement(newEntry);
+                            page.removeElementAt(N);
+                            Collections.sort(page);
+                            serializePage(pageName, page);
                         } else {
                             //insert in overFlow
+                            temp = newEntry;
                             if (t.getOverflow().containsKey(pageName)) {
+                                int index =0;
+                                while(t.getOverflowSizes().get(pageName).elementAt(index) == N){
+                                    index ++;
+                                }
+                                if(index < t.getOverflow().get(pageName).size()){
+                                    //insert in this last overflow
+                                    String overflowPageName = t.getOverflow().get(pageName).elementAt(index);
+                                    Vector overflowPageBody = deserializePage(overflowPageName);
+                                    overflowPageBody.addElement(temp);
+                                    Collections.sort(overflowPageBody);
+                                    serializePage(overflowPageName,overflowPageBody);
+                                    t.getOverflowSizes().get(pageName).setElementAt(t.getOverflowSizes().get(pageName).elementAt(index)+1,index);
+                                }else{
+                                    //create new overflow
 
+                                    String ofPageName;
+                                    try {
+                                        ofPageName = createPage(tableName);
+                                        Vector<Tuple> ofPageBody = new Vector<>();
+                                        ofPageBody.addElement(temp);
+                                        t.getOverflow().get(pageName).addElement(ofPageName);
+                                        t.getOverflowMinimum().get(pageName).addElement(temp.getClusteringKey());
+                                        t.getOverflowSizes().get(pageName).addElement(1);
+                                        serializePage(ofPageName, ofPageBody);
+
+                                    } catch (IOException e) {
+                                        e.printStackTrace();
+                                    }
+                                }
                             } else {
-                                //No Previous OverFLow
+                                //CreateFirstOverFlow
                                 Vector<String> overFlowPagesNames = new Vector<>();
                                 Vector<Comparable> overFlowPagesMin = new Vector<>();
+                                Vector<Integer> overFlowSizes = new Vector<>();
                                 String ofPageName;
                                 try {
                                     ofPageName = createPage(tableName);
@@ -318,8 +355,11 @@ public class DBApp implements DBAppInterface {
                                     ofPageBody.addElement(temp);
                                     overFlowPagesNames.addElement(ofPageName);
                                     overFlowPagesMin.addElement(temp.getClusteringKey());
-                                    t.getOverflow().put(ofPageName,overFlowPagesNames);
-                                    t.getOverflowMinimum().put(ofPageName,overFlowPagesMin);
+                                    overFlowSizes.add(1);
+                                    t.getOverflow().put(ofPageName, overFlowPagesNames);
+                                    t.getOverflowMinimum().put(ofPageName, overFlowPagesMin);
+                                    t.getOverflowSizes().put(pageName,overFlowSizes);
+
                                     serializePage(ofPageName, ofPageBody);
 
                                 } catch (IOException e) {
@@ -342,8 +382,8 @@ public class DBApp implements DBAppInterface {
                         }
                     }
                 }
-                serializePage(pageName, page);
             }
+            serializeTableInfo(tableName,t);
         } else {
             throw new DBAppException("Table Does Not Exist");
         }
@@ -377,11 +417,11 @@ public class DBApp implements DBAppInterface {
         int i = (lo + hi) / 2;
         while (lo < hi) {
             if (i != numberOfPages - 1) {
-                if (((Comparable) (minimumValueInPage.elementAt(i))).compareTo(key) > 0) {
+                if (minimumValueInPage.elementAt(i).compareTo(key) > 0) {
                     hi = i - 1;
                 } else {
                     if (i != numberOfPages - 1) {
-                        if (((Comparable) (minimumValueInPage.elementAt(i + 1))).compareTo(key) > 0) {
+                        if (minimumValueInPage.elementAt(i + 1).compareTo(key) > 0) {
                             return i;
                         } else {
                             lo = hi + 1;

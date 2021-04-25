@@ -9,7 +9,10 @@ public class Table implements Serializable, Comparable {
     private Vector<String> pageNames;
     private Vector<Comparable> minPageValue;
     private Hashtable<String, Vector<String>> overflow;
+    private Hashtable<String, Vector<Integer>> overflowSizes;
     private Hashtable<String, Vector<Comparable>> overflowMinimum;
+    // To be done : count element number in pages
+
 
     public Table(String name) {
         this.name = name;
@@ -18,9 +21,12 @@ public class Table implements Serializable, Comparable {
         minPageValue = new Vector<Comparable>();
         overflow = new Hashtable<>();
         overflowMinimum = new Hashtable<>();
+        overflowSizes = new Hashtable<>();
     }
 
-
+    public Hashtable<String, Vector<Integer>> getOverflowSizes() {
+        return overflowSizes;
+    }
 
     public Hashtable<String, Vector<Comparable>> getOverflowMinimum() {
         return overflowMinimum;
