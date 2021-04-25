@@ -8,9 +8,9 @@ import java.util.*;
 
 public class DBApp implements DBAppInterface {
     static int N = 0;
-    HashMap<String, HashMap<String, String>> tableData = new HashMap<String, HashMap<String, String>>();
+    HashMap<String, HashMap<String, String>> tableData = new HashMap<>();
 
-    public static void main(String[] args) throws DBAppException, NoSuchMethodException {
+    public static void main(String[] args) throws DBAppException {
         String strTableName = "Student";
         DBApp dbApp = new DBApp();
 //        Hashtable htblColNameType = new Hashtable();
@@ -49,13 +49,11 @@ public class DBApp implements DBAppInterface {
     public void init() {
         Properties prop = new Properties();
         String fileName = "src/main/resources/DBApp.config";
-        InputStream is = null;
+        InputStream is ;
         try {
             is = new FileInputStream(fileName);
             prop.load(is);
             N = Integer.parseInt(prop.getProperty("MaximumRowsCountinPage"));
-        } catch (FileNotFoundException e) {
-            e.printStackTrace();
         } catch (IOException e) {
             e.printStackTrace();
         }
@@ -86,17 +84,16 @@ public class DBApp implements DBAppInterface {
     @Override
     public void createTable(String tableName, String clusteringKey, Hashtable<String, String> colNameType, Hashtable<String, String> colNameMin, Hashtable<String, String> colNameMax) throws DBAppException {
         if (!tableExists(tableName)) {
-            for (Object s : colNameType.keySet()) {
-                if (colNameType.get(s).equals("java.lang.Integer")) {
-                    continue;
-                } else if (colNameType.get(s).equals("java.lang.String")) {
-                    continue;
-                } else if (colNameType.get(s).equals("java.lang.Double")) {
-                    continue;
-                } else if (colNameType.get(s).equals("java.util.Date")) {
-                    continue;
-                } else
-                    throw new DBAppException("Column " + s + " has an invalid datatype.");
+            for (String s : colNameType.keySet()) {
+                switch (colNameType.get(s)) {
+                    case "java.lang.Integer":
+                    case "java.lang.String":
+                    case "java.lang.Double":
+                    case "java.util.Date":
+                        continue;
+                    default:
+                        throw new DBAppException("Column " + s + " has an invalid datatype.");
+                }
             }
 
             try {
@@ -386,20 +383,26 @@ public class DBApp implements DBAppInterface {
 
     @Override
     public void deleteFromTable(String tableName, Hashtable<String, Object> columnNameValue) throws DBAppException {
-        String clusteringKeyValue = validateInput(tableName, columnNameValue,false);
+        String clusteringKeyValue = validateInput(tableName, columnNameValue, false);
         Table table = deserializeTableInfo(tableName);
         Vector<String> pageNames = table.getPageNames();
         boolean checkIfDelete = false;
+        //Looping over all pages
+        page:
         for (String pageName : pageNames) {
             //OverFlow to be done
             Vector<Tuple> page = deserializePage(pageName);
             tuple:
+            //Looping over all tuples in a page
             for (Tuple tuple : page) {
                 Hashtable<String, Comparable> entries = tuple.getEntries();
+                //Looping over every column in a tuple
+                field:
                 for (String columnName : columnNameValue.keySet()) {
                     if (((Comparable) columnNameValue.get(columnName)).compareTo(entries.get(columnName)) != 0)
                         continue tuple;
                 }
+                checkIfDelete = true;
                 //delete row:
 
             }
@@ -517,10 +520,11 @@ public class DBApp implements DBAppInterface {
             } catch (IOException e) {
                 e.printStackTrace();
             }
-            if(checkPrimaryKey){
-            if (!(colNameValue.keySet()).contains(primaryKey)) {
-                throw new DBAppException("Primary Key Should Have a Value");
-            }}
+            if (checkPrimaryKey) {
+                if (!(colNameValue.keySet()).contains(primaryKey)) {
+                    throw new DBAppException("Primary Key Should Have a Value");
+                }
+            }
             for (String columnName : colNameValue.keySet()) {
                 Object value = colNameValue.get(columnName);
                 if (colType.get(columnName) == null) {
