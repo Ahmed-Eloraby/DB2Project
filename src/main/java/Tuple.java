@@ -22,5 +22,8 @@ public class Tuple implements Comparable, Serializable {
         return this.clusteringKey.compareTo(((Tuple) o).getClusteringKey());
     }
 
+    public void setEntries(Hashtable<String,Comparable> ent){
+        this.entries=ent;
+    }
 
 }
