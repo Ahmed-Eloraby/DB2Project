@@ -308,7 +308,7 @@ public class DBApp implements DBAppInterface {
                     page.addElement(newEntry);
                     Collections.sort(page);
                     serializePage(pageName, page);
-                    t.getMinPageValue().setElementAt(newEntry.getClusteringKey(),pageIndex);
+                    t.getMinPageValue().setElementAt(page.firstElement().getClusteringKey(),pageIndex);
                     t.getPageSize().setElementAt(page.size()+1,pageIndex);
                 }
                 else {
@@ -347,7 +347,6 @@ public class DBApp implements DBAppInterface {
                                     t.getOverflowSizes().get(pageName).setElementAt(t.getOverflowSizes().get(pageName).elementAt(index)+1,index);
                                 }else{
                                     //create new overflow
-
                                     String ofPageName;
                                     try {
                                         ofPageName = createPage(tableName);
@@ -385,15 +384,21 @@ public class DBApp implements DBAppInterface {
                     } else {
                         //if we are in the last page -> create a new page
                         Vector<Tuple> newPageBody = new Vector<>();
-                        newPageBody.addElement(newEntry);
+                        Tuple temp = page.lastElement();
                         try {
                             String newPageName = createPage(t.getName());
                             t.getPageNames().addElement(newPageName);
-                            serializePage(newPageName, newPageBody);
+                            page.addElement(newEntry);
+                            page.removeElementAt(N);
+                            Collections.sort(page);
+                            newPageBody.addElement(temp);
+                            serializePage(newPageName,newPageBody);
                             t.setNumberOfPages(1);
-                            t.getMinPageValue().addElement(newEntry.getClusteringKey());
+                            t.getMinPageValue().addElement(temp.getClusteringKey());
                             t.getPageSize().addElement(1);
-                            serializeTableInfo(tableName, t);
+                            t.getMinPageValue().setElementAt(page.firstElement().getClusteringKey(),pageIndex);
+                            serializePage(pageName,page);
+
                         } catch (IOException e) {
                             e.printStackTrace();
                         }
