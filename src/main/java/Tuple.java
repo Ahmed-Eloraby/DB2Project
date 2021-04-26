@@ -26,4 +26,17 @@ public class Tuple implements Comparable, Serializable {
         this.entries=ent;
     }
 
+    @Override
+    public String toString() {
+        StringBuilder s = new StringBuilder();
+        for (Comparable name: entries.keySet()) {
+            String key = name.toString();
+            String value = entries.get(name).toString();
+            s.append(key + " : " + value + ", ");
+        }
+        return "Tuple{" +
+                "clusteringKey=" + clusteringKey.toString() +
+                ", entries=" + entries.toString() +
+                '}';
+    }
 }

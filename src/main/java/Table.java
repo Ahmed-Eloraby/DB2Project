@@ -73,4 +73,5 @@ public class Table implements Serializable, Comparable {
         Vector<Integer> test2 = new Vector<>(test.subList(test.size()/2,test.size()));
         System.out.println(test2);
     }
+
 }
