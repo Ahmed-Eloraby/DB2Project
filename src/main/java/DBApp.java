@@ -277,7 +277,6 @@ public class DBApp implements DBAppInterface {
                     table.getPageNames().addElement(newPageName);
                     table.setNumberOfPages(1);
                     table.getMinPageValue().addElement(newEntry.getClusteringKey());
-                    table.getPageSize().addElement(1);
                     serializePage(newPageName, newPageBody);
                 } catch (IOException e) {
                     e.printStackTrace();
@@ -310,7 +309,6 @@ public class DBApp implements DBAppInterface {
                     Collections.sort(page);
                     serializePage(pageName, page);
                     table.getMinPageValue().setElementAt(page.firstElement().getClusteringKey(), pageIndex);
-                    table.getPageSize().setElementAt(page.size() + 1, pageIndex);
                 } else {
                     //Page is full
                     //check if last page
@@ -404,7 +402,6 @@ public class DBApp implements DBAppInterface {
                             serializePage(newPageName, newPageBody);
                             table.setNumberOfPages(1);
                             table.getMinPageValue().addElement(temp.getClusteringKey());
-                            table.getPageSize().addElement(1);
                             table.getMinPageValue().setElementAt(page.firstElement().getClusteringKey(), pageIndex);
                             serializePage(pageName, page);
 
@@ -639,9 +636,9 @@ public class DBApp implements DBAppInterface {
         Comparable clusteringValue = validateInput(tableName, columnNameValue, false);
         Table table = deserializeTableInfo(tableName);
         Vector<String> pageNames = table.getPageNames();
-        ArrayList<String> pagesToDelete = new ArrayList<>();
         //Looping over all pages
         if (clusteringValue == null) {
+            ArrayList<String> pagesToDelete = new ArrayList<>();
             page:
             for (String pageName : pageNames) {
                 //OverFlow to be done
@@ -677,13 +674,12 @@ public class DBApp implements DBAppInterface {
                 int i = pageNames.indexOf(s);
                 pageNames.removeElementAt(i);
                 table.getMinPageValue().removeElementAt(i);
-                table.getPageSize().removeElementAt(i);
                 table.setNumberOfPages(-1);
             }
         } else {
             // If the Clustering Key is Known
             int pageIndex = getPageIndex(clusteringValue, table.getMinPageValue(), table.getNumberOfPages());
-            String pageName = (String) pageNames.elementAt(pageIndex);
+            String pageName = pageNames.elementAt(pageIndex);
             Vector<Tuple> mainPageBody = deserializePage(pageName);
             int keyIndex = getKeyIndex(pageName, mainPageBody);
             if (keyIndex != -1) {
@@ -691,11 +687,16 @@ public class DBApp implements DBAppInterface {
                 if (mainPageBody.isEmpty()) {
                     pageNames.removeElementAt(pageIndex);
                     table.getMinPageValue().removeElementAt(pageIndex);
-                    table.getPageSize().removeElementAt(pageIndex);
                     table.setNumberOfPages(-1);
+                    File f = new File("src/main/Pages/" + pageName + ".class");
+                    f.delete();
+                }else{
+                    table.getMinPageValue().setElementAt(mainPageBody.firstElement().getClusteringKey(),keyIndex);
+                    serializePage(pageName,mainPageBody);
                 }
             } else {
                 //go to overflow pages
+                throw new DBAppException("Record does not exist");
             }
         }
         serializeTableInfo(tableName, table);
