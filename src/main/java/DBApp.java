@@ -322,7 +322,7 @@ public class DBApp implements DBAppInterface {
                            //get the last element in the page
                             Tuple temp = page.lastElement();
                            //insert last element from the page to the next one
-                            page.removeElementAt(N);
+                            page.removeElementAt(N-1);
                             nextPage.addElement(temp);
                             Collections.sort(nextPage);
                             //add new tuple to the page
