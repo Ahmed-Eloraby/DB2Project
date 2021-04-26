@@ -1,6 +1,8 @@
 import java.io.*;
 import java.lang.reflect.Constructor;
 
+import java.lang.reflect.InvocationTargetException;
+import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.time.LocalDateTime;
 import java.util.*;
@@ -32,18 +34,18 @@ public class DBApp implements DBAppInterface {
 
         dbApp.createTable(strTableName, "id", htblColNameType, min, max);
 
-        Hashtable htblColNameValue = new Hashtable( );
-        htblColNameValue.put("id", new Integer( 2343432 ));
-        htblColNameValue.put("name", new String("Ahmed Noor" ) );
-        htblColNameValue.put("gpa", new Double( 0.95 ) );
+        Hashtable htblColNameValue = new Hashtable();
+        htblColNameValue.put("id", new Integer(2343432));
+        htblColNameValue.put("name", new String("Ahmed Noor"));
+        htblColNameValue.put("gpa", new Double(0.95));
 
 
-        dbApp.insertIntoTable( strTableName , htblColNameValue );
-        htblColNameValue.clear( );
-        htblColNameValue.put("id", new Integer( 2343432 ));
-        htblColNameValue.put("name", new String("Ahmed Noor" ) );
-        htblColNameValue.put("gpa", new Double( 0.95 ) );
-        dbApp.insertIntoTable( strTableName , htblColNameValue );
+        dbApp.insertIntoTable(strTableName, htblColNameValue);
+        htblColNameValue.clear();
+        htblColNameValue.put("id", new Integer(234432));
+        htblColNameValue.put("name", new String("Ahmed Noor"));
+        htblColNameValue.put("gpa", new Double(0.95));
+        dbApp.insertIntoTable(strTableName, htblColNameValue);
         System.out.println("DONE");
 ////        htblColNameValue.clear( );
 //        htblColNameValue.put("id", new Integer( 5674567 ));
@@ -81,7 +83,7 @@ public class DBApp implements DBAppInterface {
         }
         try {
             BufferedReader br = new BufferedReader(new FileReader("src/main/resources/metadata.csv"));
-            if(!br.ready()) {
+            if (!br.ready()) {
                 FileWriter csvWriter = new FileWriter("src/main/resources/metadata.csv", true);
                 csvWriter.append("Table Name");
                 csvWriter.append(",");
@@ -248,7 +250,7 @@ public class DBApp implements DBAppInterface {
                         }
                         int zmax = (int) (max);
                         if (zvalue > zmax) {
-                            throw new DBAppException("Value inserted is larger than maximum allowed" + columnName);
+                            throw new DBAppException("Value inserted is larger than maximum value allowed for " + columnName);
                         }
 
 
@@ -256,27 +258,27 @@ public class DBApp implements DBAppInterface {
                         double zvalue = (double) (value);
                         double zmin = (double) (min);
                         if (zvalue < zmin) {
-                            throw new DBAppException("Value Inserted is less than minimum allowed for" + columnName);
+                            throw new DBAppException("Value Inserted is less than minimum value allowed for " + columnName);
                         }
                         double zmax = (double) (max);
                         if (zvalue > zmax) {
-                            throw new DBAppException("Value inserted is larger than maximum allowed for" + columnName);
+                            throw new DBAppException("Value inserted is larger than maximum value allowed for " + columnName);
                         }
                     } else if (value instanceof java.lang.String) {
                         String svalue = (String) (value);
                         String smin = (String) (min);
                         if ((svalue.compareTo(smin)) < 0) {
-                            throw new DBAppException("Value Inserted is less than minimum allowed for" + columnName);
+                            throw new DBAppException("Value Inserted is less than minimum value allowed for " + columnName);
                         }
                         if (smin.length() > svalue.length()) {
-                            throw new DBAppException("Value length Inserted is less than minimum allowed for" + columnName);
+                            throw new DBAppException("Value length Inserted is less than minimum value allowed for " + columnName);
                         }
                         String smax = (String) (max);
                         if ((svalue.compareTo(smax)) > 0) {
-                            throw new DBAppException("Value inserted is larger than maximum allowed for" + columnName);
+                            throw new DBAppException("Value inserted is larger than maximum value allowed for " + columnName);
                         }
                         if (smax.length() < svalue.length()) {
-                            throw new DBAppException("Value length Inserted is larger than minimum allowed for" + columnName);
+                            throw new DBAppException("Value length Inserted is larger than minimum value allowed for " + columnName);
                         }
                     } else if (value instanceof java.util.Date) {
                         SimpleDateFormat sdformat = new SimpleDateFormat("yyyy-MM-dd");
@@ -284,12 +286,21 @@ public class DBApp implements DBAppInterface {
                         Date dmin = sdformat.parse(String.valueOf(min));
                         Date dmax = sdformat.parse(String.valueOf(max));
                         if (dvalue.compareTo(dmax) > 0) {
-                            throw new DBAppException("Date inserted Occurs after maximum allowable Date");
+                            throw new DBAppException("Date inserted Occurs after maximum allowable Date for " + columnName);
                         } else if (dvalue.compareTo(dmin) < 0) {
-                            throw new DBAppException("Date inserted Occurs before minimum allowable Date");
+                            throw new DBAppException("Date inserted Occurs before minimum allowable Date for " + columnName);
                         }
                     }
-                } catch (Exception e) {
+                }  catch (NoSuchMethodException e) {
+                    e.printStackTrace();
+                } catch (InvocationTargetException e) {
+                    e.printStackTrace();
+                } catch (InstantiationException e) {
+                    e.printStackTrace();
+                } catch (IllegalAccessException e) {
+                    e.printStackTrace();
+                } catch (ParseException e) {
+                    e.printStackTrace();
                 }
             }
             Hashtable<String, Comparable> allColValues = new Hashtable<>();
@@ -304,6 +315,7 @@ public class DBApp implements DBAppInterface {
             if (table.getNumberOfPages() == 0) {
                 //Create the First Page
                 try {
+                    System.out.println("Creating new page :)");
                     Vector<Tuple> newPageBody = new Vector<>();
                     newPageBody.addElement(newEntry);
                     String newPageName = createPage(table.getName());
@@ -311,6 +323,8 @@ public class DBApp implements DBAppInterface {
                     table.setNumberOfPages(1);
                     table.getMinPageValue().addElement(newEntry.getClusteringKey());
                     serializePage(newPageName, newPageBody);
+                    serializeTableInfo(tableName, table);
+
                 } catch (IOException e) {
                     e.printStackTrace();
                 }
@@ -318,11 +332,14 @@ public class DBApp implements DBAppInterface {
                 //if Page(s) was found
                 //get index where the range
                 int pageIndex = getPageIndex(newEntry.getClusteringKey(), table.getMinPageValue(), table.getNumberOfPages());
+                System.out.println("Page Index: " + pageIndex);
                 //page name
                 String pageName = (String) table.getPageNames().elementAt(pageIndex);
+                System.out.println("Page Name: " + pageName);
                 //Fetch the vector of the page (deserialize)
                 Vector<Tuple> page = deserializePage(pageName);
                 int keyIndex = getKeyIndex(newEntry.getClusteringKey(), page);
+                System.out.println(keyIndex);
                 if (keyIndex != -1) {
                     //check if primary key exist in main page
                     throw new DBAppException("Clustering Key Already Exists");
@@ -475,9 +492,10 @@ public class DBApp implements DBAppInterface {
 
 
     public int getPageIndex(Comparable key, Vector<Comparable> minimumValueInPage, int numberOfPages) {
-        int lo = 0, hi = numberOfPages;
+        int lo = 0, hi = numberOfPages - 1;
         int i = (lo + hi) / 2;
         while (lo < hi) {
+            System.out.println("Help!");
             if (i != numberOfPages - 1) {
                 if (minimumValueInPage.elementAt(i).compareTo(key) < 0) {
                     hi = i - 1;
@@ -805,7 +823,7 @@ public class DBApp implements DBAppInterface {
             i.printStackTrace();
         }
         System.out.println(name);
-        for(Tuple t: pageBody){
+        for (Tuple t : pageBody) {
             System.out.println(t);
         }
         System.out.println();
@@ -877,10 +895,15 @@ public class DBApp implements DBAppInterface {
                     throw new DBAppException("Type Miss-match of Column: " + columnName);
                 }
                 Object min, max;
+
+                Constructor constr = null;
                 try {
-                    Constructor constr = type.getConstructor(String.class);
+                    constr = type.getConstructor(String.class);
+
                     min = constr.newInstance(colmin.get(columnName));
                     max = constr.newInstance(colmax.get(columnName));
+
+
                     if (value instanceof java.lang.Integer) {
                         int zvalue = (int) (value);
                         int zmin = (int) (min);
@@ -931,10 +954,19 @@ public class DBApp implements DBAppInterface {
                             throw new DBAppException("Date inserted Occurs before minimum allowable Date");
                         }
                     }
-                } catch (Exception e) {
 
+                    return (Comparable) colNameValue.get(primaryKey);
+                } catch (NoSuchMethodException e) {
+                    e.printStackTrace();
+                } catch (InvocationTargetException e) {
+                    e.printStackTrace();
+                } catch (InstantiationException e) {
+                    e.printStackTrace();
+                } catch (IllegalAccessException e) {
+                    e.printStackTrace();
+                } catch (ParseException e) {
+                    e.printStackTrace();
                 }
-                return (Comparable) colNameValue.get(primaryKey);
             }
         } else {
             throw new DBAppException("Table Does Not Exist");
