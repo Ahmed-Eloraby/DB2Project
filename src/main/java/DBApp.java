@@ -266,18 +266,18 @@ public class DBApp implements DBAppInterface {
             //CREATE tuple to be inserted
             Tuple newEntry = new Tuple(allColValues.get(primaryKey), allColValues);
             //FETCH Table info
-            Table t = deserializeTableInfo(tableName);
+            Table table = deserializeTableInfo(tableName);
             //if no pages found for the Table
-            if (t.getNumberOfPages() == 0) {
+            if (table.getNumberOfPages() == 0) {
                 //Create the First Page
                 try {
                     Vector<Tuple> newPageBody = new Vector<>();
                     newPageBody.addElement(newEntry);
-                    String newPageName = createPage(t.getName());
-                    t.getPageNames().addElement(newPageName);
-                    t.setNumberOfPages(1);
-                    t.getMinPageValue().addElement(newEntry.getClusteringKey());
-                    t.getPageSize().addElement(1);
+                    String newPageName = createPage(table.getName());
+                    table.getPageNames().addElement(newPageName);
+                    table.setNumberOfPages(1);
+                    table.getMinPageValue().addElement(newEntry.getClusteringKey());
+                    table.getPageSize().addElement(1);
                     serializePage(newPageName, newPageBody);
                 } catch (IOException e) {
                     e.printStackTrace();
@@ -285,9 +285,9 @@ public class DBApp implements DBAppInterface {
             } else {
                 //if Page(s) was found
                 //get index where the range
-                int pageIndex = getPageIndex(newEntry.getClusteringKey(), t.getMinPageValue(), t.getNumberOfPages());
+                int pageIndex = getPageIndex(newEntry.getClusteringKey(), table.getMinPageValue(), table.getNumberOfPages());
                 //page name
-                String pageName = (String) t.getPageNames().elementAt(pageIndex);
+                String pageName = (String) table.getPageNames().elementAt(pageIndex);
                 //Fetch the vector of the page (deserialize)
                 Vector<Tuple> page = deserializePage(pageName);
                 int keyIndex = getKeyIndex(newEntry.getClusteringKey(), page);
@@ -296,8 +296,8 @@ public class DBApp implements DBAppInterface {
                     throw new DBAppException("Clustering Key Already Exists");
                 } else {
                     //check if primary key exist in overflow pages
-                    if (t.getOverflow().get(pageName) != null) {
-                        for (String s : t.getOverflow().get(pageName)) {
+                    if (table.getOverflow().get(pageName) != null) {
+                        for (String s : table.getOverflow().get(pageName)) {
                             Vector<Tuple> ofpage = deserializePage(s);
                             if (getKeyIndex(newEntry.getClusteringKey(), ofpage) != -1)
                                 throw new DBAppException("Clustering Key Already Exists");
@@ -309,79 +309,103 @@ public class DBApp implements DBAppInterface {
                     page.addElement(newEntry);
                     Collections.sort(page);
                     serializePage(pageName, page);
-                    t.getMinPageValue().setElementAt(page.firstElement().getClusteringKey(), pageIndex);
-                    t.getPageSize().setElementAt(page.size() + 1, pageIndex);
+                    table.getMinPageValue().setElementAt(page.firstElement().getClusteringKey(), pageIndex);
+                    table.getPageSize().setElementAt(page.size() + 1, pageIndex);
                 } else {
+                    //Page is full
                     //check if last page
-                    if (pageIndex < t.getNumberOfPages() - 1) {
+                    if (pageIndex < table.getNumberOfPages() - 1) {
                         //if we are not in the last page
                         //insert in overFlow
-                        if (t.getOverflow().get(pageName) != null) {
-                            int index = 0;
-                            //find index of overflow page with a vacancy
-                            while (index < t.getOverflow().get(pageName).size() && t.getOverflowSizes().get(pageName).elementAt(index) == N) {
-                                index++;
-                            }
-                            if (index < t.getOverflow().get(pageName).size()) {
-                                //insert in this overflow
-                                String overflowPageName = t.getOverflow().get(pageName).elementAt(index);
-                                Vector overflowPageBody = deserializePage(overflowPageName);
-                                overflowPageBody.addElement(newEntry);
-                                Collections.sort(overflowPageBody);
-                                serializePage(overflowPageName, overflowPageBody);
-                                t.getOverflowSizes().get(pageName).setElementAt(t.getOverflowSizes().get(pageName).elementAt(index) + 1, index);
+                        Vector<Tuple> firsthalf = new Vector<>(page.subList(0, N / 2));
+                        Vector<Tuple> secondhalf = new Vector<>(page.subList(N / 2, N));
+
+                        try {
+                            String newhalfpagename = createPage(tableName);
+                            table.getPageNames().insertElementAt(newhalfpagename, pageIndex + 1);
+                            table.getMinPageValue().insertElementAt(0, pageIndex + 1);
+
+                            if (secondhalf.firstElement().getClusteringKey().compareTo(newEntry.getClusteringKey()) < 0) {
+                                secondhalf.addElement(newEntry);
                             } else {
-                                //if all over flow pages were full (Size = N) -> create new overflow
-                                String ofPageName;
-                                try {
-                                    ofPageName = createPage(tableName);
-                                    Vector<Tuple> ofPageBody = new Vector<>();
-                                    ofPageBody.addElement(newEntry);
-                                    t.getOverflow().get(pageName).addElement(ofPageName);
-                                    t.getOverflowSizes().get(pageName).addElement(1);
-                                    serializePage(ofPageName, ofPageBody);
-
-                                } catch (IOException e) {
-                                    e.printStackTrace();
-                                }
+                                firsthalf.addElement(newEntry);
                             }
-                        } else {
-                            //CreateFirstOverFlow
-                            Vector<String> overFlowPagesNames = new Vector<>();
-                            Vector<Integer> overFlowSizes = new Vector<>();
-                            String ofPageName;
-                            try {
-                                ofPageName = createPage(tableName);
-                                Vector<Tuple> ofPageBody = new Vector<>();
-                                ofPageBody.addElement(newEntry);
-                                overFlowPagesNames.addElement(ofPageName);
-                                overFlowSizes.add(1);
-                                t.getOverflow().put(ofPageName, overFlowPagesNames);
-                                t.getOverflowSizes().put(pageName, overFlowSizes);
+                            table.getMinPageValue().setElementAt(firsthalf.firstElement().getClusteringKey(), pageIndex);
+                            table.getMinPageValue().setElementAt(secondhalf.firstElement().getClusteringKey(), pageIndex + 1);
 
-                                serializePage(ofPageName, ofPageBody);
-
-                            } catch (IOException e) {
-                                e.printStackTrace();
-                            }
-
+                            serializePage(pageName, firsthalf);
+                            serializePage(newhalfpagename, secondhalf);
+                        } catch (IOException e) {
+                            e.printStackTrace();
                         }
+
+//Over Flow Code
+//                        if (table.getOverflow().get(pageName) != null) {
+//                            int index = 0;
+//                            //find index of overflow page with a vacancy
+//                            while (index < table.getOverflow().get(pageName).size() && table.getOverflowSizes().get(pageName).elementAt(index) == N) {
+//                                index++;
+//                            }
+//                            if (index < table.getOverflow().get(pageName).size()) {
+//                                //insert in this overflow
+//                                String overflowPageName = table.getOverflow().get(pageName).elementAt(index);
+//                                Vector overflowPageBody = deserializePage(overflowPageName);
+//                                overflowPageBody.addElement(newEntry);
+//                                Collections.sort(overflowPageBody);
+//                                serializePage(overflowPageName, overflowPageBody);
+//                                table.getOverflowSizes().get(pageName).setElementAt(table.getOverflowSizes().get(pageName).elementAt(index) + 1, index);
+//                            } else {
+//                                //if all over flow pages were full (Size = N) -> create new overflow
+//                                String ofPageName;
+//                                try {
+//                                    ofPageName = createPage(tableName);
+//                                    Vector<Tuple> ofPageBody = new Vector<>();
+//                                    ofPageBody.addElement(newEntry);
+//                                    table.getOverflow().get(pageName).addElement(ofPageName);
+//                                    table.getOverflowSizes().get(pageName).addElement(1);
+//                                    serializePage(ofPageName, ofPageBody);
+//
+//                                } catch (IOException e) {
+//                                    e.printStackTrace();
+//                                }
+//                            }
+//                        } else {
+//                            //CreateFirstOverFlow
+//                            Vector<String> overFlowPagesNames = new Vector<>();
+//                            Vector<Integer> overFlowSizes = new Vector<>();
+//                            String ofPageName;
+//                            try {
+//                                ofPageName = createPage(tableName);
+//                                Vector<Tuple> ofPageBody = new Vector<>();
+//                                ofPageBody.addElement(newEntry);
+//                                overFlowPagesNames.addElement(ofPageName);
+//                                overFlowSizes.add(1);
+//                                table.getOverflow().put(ofPageName, overFlowPagesNames);
+//                                table.getOverflowSizes().put(pageName, overFlowSizes);
+//
+//                                serializePage(ofPageName, ofPageBody);
+//
+//                            } catch (IOException e) {
+//                                e.printStackTrace();
+//                            }
+//
+//                        }
                     } else {
                         //if we are in the last page -> create a new page
                         Vector<Tuple> newPageBody = new Vector<>();
                         Tuple temp = page.lastElement();
                         try {
-                            String newPageName = createPage(t.getName());
-                            t.getPageNames().addElement(newPageName);
+                            String newPageName = createPage(table.getName());
+                            table.getPageNames().addElement(newPageName);
                             page.addElement(newEntry);
                             page.removeElementAt(N);
                             Collections.sort(page);
                             newPageBody.addElement(temp);
                             serializePage(newPageName, newPageBody);
-                            t.setNumberOfPages(1);
-                            t.getMinPageValue().addElement(temp.getClusteringKey());
-                            t.getPageSize().addElement(1);
-                            t.getMinPageValue().setElementAt(page.firstElement().getClusteringKey(), pageIndex);
+                            table.setNumberOfPages(1);
+                            table.getMinPageValue().addElement(temp.getClusteringKey());
+                            table.getPageSize().addElement(1);
+                            table.getMinPageValue().setElementAt(page.firstElement().getClusteringKey(), pageIndex);
                             serializePage(pageName, page);
 
                         } catch (IOException e) {
@@ -390,7 +414,7 @@ public class DBApp implements DBAppInterface {
                     }
                 }
             }
-            serializeTableInfo(tableName, t);
+            serializeTableInfo(tableName, table);
         } else {
             throw new DBAppException("Table Does Not Exist");
         }
@@ -617,42 +641,62 @@ public class DBApp implements DBAppInterface {
         Vector<String> pageNames = table.getPageNames();
         ArrayList<String> pagesToDelete = new ArrayList<>();
         //Looping over all pages
-        page:
-        for (String pageName : pageNames) {
-            //OverFlow to be done
-            Vector<Tuple> page = deserializePage(pageName);
-            tuple:
-            //Looping over all tuples in a page
-            for (int i = 0; i < page.size(); i++) {
-                Tuple tuple = page.elementAt(i);
-                Hashtable<String, Comparable> entries = tuple.getEntries();
-                //Looping over every column in a tuple
-                field:
-                for (String columnName : columnNameValue.keySet()) {
-                    if (((Comparable) columnNameValue.get(columnName)).compareTo(entries.get(columnName)) != 0)
-                        continue tuple;
+        if (clusteringValue == null) {
+            page:
+            for (String pageName : pageNames) {
+                //OverFlow to be done
+                Vector<Tuple> page = deserializePage(pageName);
+                tuple:
+                //Looping over all tuples in a page
+                for (int i = 0; i < page.size(); i++) {
+                    Tuple tuple = page.elementAt(i);
+                    Hashtable<String, Comparable> entries = tuple.getEntries();
+                    //Looping over every column in a tuple
+                    field:
+                    for (String columnName : columnNameValue.keySet()) {
+                        if (((Comparable) columnNameValue.get(columnName)).compareTo(entries.get(columnName)) != 0)
+                            continue tuple;
+                    }
+                    //delete row:
+                    page.removeElementAt(i);
                 }
-                //delete row:
-                page.removeElementAt(i);
+                //update the page:
+                if (page.isEmpty()) {
+                    //delete the page:
+                    pagesToDelete.add(pageName);
+                } else {
+                    //page is not empty
+                    int i = pageNames.indexOf(pageName);
+                    table.getMinPageValue().setElementAt(page.firstElement().getClusteringKey(), i);
+                    serializePage(pageName, page);
+                }
             }
-            //update the page:
-            if (page.isEmpty()) {
-                //delete the page:
-                pagesToDelete.add(pageName);
+            for (String s : pagesToDelete) {
+                File f = new File("src/main/Pages/" + s + ".class");
+                f.delete();
+                int i = pageNames.indexOf(s);
+                pageNames.removeElementAt(i);
+                table.getMinPageValue().removeElementAt(i);
+                table.getPageSize().removeElementAt(i);
+                table.setNumberOfPages(-1);
+            }
+        } else {
+            // If the Clustering Key is Known
+            int pageIndex = getPageIndex(clusteringValue, table.getMinPageValue(), table.getNumberOfPages());
+            String pageName = (String) pageNames.elementAt(pageIndex);
+            Vector<Tuple> mainPageBody = deserializePage(pageName);
+            int keyIndex = getKeyIndex(pageName, mainPageBody);
+            if (keyIndex != -1) {
+                mainPageBody.removeElementAt(keyIndex);
+                if (mainPageBody.isEmpty()) {
+                    pageNames.removeElementAt(pageIndex);
+                    table.getMinPageValue().removeElementAt(pageIndex);
+                    table.getPageSize().removeElementAt(pageIndex);
+                    table.setNumberOfPages(-1);
+                }
             } else {
-                //page is not empty
-                int i = pageNames.indexOf(pageName);
-                table.getMinPageValue().setElementAt(page.firstElement().getClusteringKey(), i);
-                serializePage(pageName, page);
+                //go to overflow pages
             }
-        }
-        for (String s : pagesToDelete) {
-            File f = new File("src/main/Pages/" + s + ".class");
-            f.delete();
-            int i = pageNames.indexOf(s);
-            pageNames.removeElementAt(i);
-            table.getMinPageValue().removeElementAt(i);
-            table.setNumberOfPages(-1);
         }
         serializeTableInfo(tableName, table);
     }

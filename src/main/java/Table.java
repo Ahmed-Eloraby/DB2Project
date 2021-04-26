@@ -63,7 +63,19 @@ public class Table implements Serializable, Comparable {
     }
 
     public static void main(String[] args) {
-        Hashtable<String,String> t =  new Hashtable<>();
-        System.out.println(t.get("asfa"));
+        Vector<Integer> test = new Vector<>();
+        test.add(0);
+        test.add(1);
+        test.add(2);
+        test.add(4);
+        test.add(5);
+
+        System.out.println(test);
+        test.insertElementAt(3,5);
+        System.out.println(test);
+        Vector<Integer> test1 = new Vector<>(test.subList(0,test.size()/2));
+        System.out.println(test1);
+        Vector<Integer> test2 = new Vector<>(test.subList(test.size()/2,test.size()));
+        System.out.println(test2);
     }
 }
