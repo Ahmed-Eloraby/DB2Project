@@ -58,20 +58,37 @@ public class Table implements Serializable, Comparable {
     }
 
     public static void main(String[] args) {
-        Vector<Integer> test = new Vector<>();
-        test.add(0);
-        test.add(1);
-        test.add(2);
-        test.add(4);
-        test.add(5);
+        Integer key = 0;
+        Vector<Integer>  keysInPage  = new Vector<>();
+        keysInPage.addElement(0);
+        keysInPage.addElement(1);
+        keysInPage.addElement(2);
+        keysInPage.addElement(3);
+        keysInPage.addElement(4);
+        keysInPage.addElement(5);
+        int lo = 0;
+        int hi = keysInPage.size() - 1;
+        int i = (lo + hi) / 2;
+        boolean f = false;
+        while (lo < hi) {
+            if (key.compareTo(keysInPage.elementAt(i)) == 0) {
+                System.out.println(i);
+                f=true;
+                break;
+            } else if (key.compareTo(keysInPage.elementAt(i)) < 0) {
+                hi = i - 1;
+            } else {
+                lo = i + 1;
+            }
 
-        System.out.println(test);
-        test.insertElementAt(3,5);
-        System.out.println(test);
-        Vector<Integer> test1 = new Vector<>(test.subList(0,test.size()/2));
-        System.out.println(test1);
-        Vector<Integer> test2 = new Vector<>(test.subList(test.size()/2,test.size()));
-        System.out.println(test2);
+            i = (lo + hi) / 2;
+        }
+        if (!f && key.compareTo(keysInPage.elementAt(i)) == 0) {
+            System.out.println(i);
+        }
+        System.out.println(-1);
+
+
     }
 
 }

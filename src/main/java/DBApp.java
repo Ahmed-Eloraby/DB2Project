@@ -45,7 +45,7 @@ public class DBApp implements DBAppInterface {
         htblColNameValue.put("gpa", new Double( 0.95 ) );
         dbApp.insertIntoTable( strTableName , htblColNameValue );
         System.out.println("DONE");
-//        htblColNameValue.clear( );
+////        htblColNameValue.clear( );
 //        htblColNameValue.put("id", new Integer( 5674567 ));
 //        htblColNameValue.put("name", new String("Dalia Noor" ) );
 //        htblColNameValue.put("gpa", new Double( 1.25 ) );
@@ -459,7 +459,7 @@ public class DBApp implements DBAppInterface {
         while (lo < hi) {
             if (key.compareTo(keysInPage.elementAt(i).getClusteringKey()) == 0) {
                 return i;
-            } else if (key.compareTo(keysInPage.elementAt(i).getClusteringKey()) > 0) {
+            } else if (key.compareTo(keysInPage.elementAt(i).getClusteringKey()) < 0) {
                 hi = i - 1;
             } else {
                 lo = i + 1;
@@ -479,7 +479,7 @@ public class DBApp implements DBAppInterface {
         int i = (lo + hi) / 2;
         while (lo < hi) {
             if (i != numberOfPages - 1) {
-                if (minimumValueInPage.elementAt(i).compareTo(key) > 0) {
+                if (minimumValueInPage.elementAt(i).compareTo(key) < 0) {
                     hi = i - 1;
                 } else {
                     if (i != numberOfPages - 1) {
