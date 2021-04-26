@@ -61,4 +61,9 @@ public class Table implements Serializable, Comparable {
     public int compareTo(Object o) {
         return this.getName().compareTo(((Table) o).getName());
     }
+
+    public static void main(String[] args) {
+        Hashtable<String,String> t =  new Hashtable<>();
+        System.out.println(t.get("asfa"));
+    }
 }

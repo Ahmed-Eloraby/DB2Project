@@ -294,92 +294,77 @@ public class DBApp implements DBAppInterface {
                 if (keyIndex != -1) {
                     //check if primary key exist in main page
                     throw new DBAppException("Clustering Key Already Exists");
-                }
-                else{
+                } else {
                     //check if primary key exist in overflow pages
-                    for(String s: t.getOverflow().get(pageName)){
-                        Vector<Tuple> ofpage =  deserializePage(s);
-                        if(getKeyIndex(newEntry.getClusteringKey(), ofpage) !=-1)
-                            throw new DBAppException("Clustering Key Already Exists");
+                    if (t.getOverflow().get(pageName) != null) {
+                        for (String s : t.getOverflow().get(pageName)) {
+                            Vector<Tuple> ofpage = deserializePage(s);
+                            if (getKeyIndex(newEntry.getClusteringKey(), ofpage) != -1)
+                                throw new DBAppException("Clustering Key Already Exists");
+                        }
                     }
                 }
-                if(page.size() < N) {
+                if (page.size() < N) {
                     // if there is space in the main page:
                     page.addElement(newEntry);
                     Collections.sort(page);
                     serializePage(pageName, page);
-                    t.getMinPageValue().setElementAt(page.firstElement().getClusteringKey(),pageIndex);
-                    t.getPageSize().setElementAt(page.size()+1,pageIndex);
-                }
-                else {
+                    t.getMinPageValue().setElementAt(page.firstElement().getClusteringKey(), pageIndex);
+                    t.getPageSize().setElementAt(page.size() + 1, pageIndex);
+                } else {
                     //check if last page
                     if (pageIndex < t.getNumberOfPages() - 1) {
-                        //if we are not in the last page check next page
-
-                        if (t.getPageSize().elementAt(pageIndex + 1) < N) {
-                            //if there is a vacancy in the next page insert in it
-                            Vector<Tuple> nextPage = deserializePage((String) t.getPageNames().elementAt(pageIndex + 1));
-                           //get the last element in the page
-                            Tuple temp = page.lastElement();
-                           //insert last element from the page to the next one
-                            page.removeElementAt(N-1);
-                            nextPage.addElement(temp);
-                            Collections.sort(nextPage);
-                            //add new tuple to the page
-                            page.addElement(newEntry);
-                            Collections.sort(page);
-                            t.getMinPageValue().setElementAt(nextPage.firstElement().getClusteringKey(), 0);
-                            serializePage((String) t.getPageNames().elementAt(pageIndex), nextPage);
-                        } else {
-                            //insert in overFlow
-                            if (t.getOverflow().containsKey(pageName)) {
-                                int index =0;
-                                while(t.getOverflowSizes().get(pageName).elementAt(index) == N){
-                                    index ++;
-                                }
-                                if(index < t.getOverflow().get(pageName).size()){
-                                    //insert in this last overflow
-                                    String overflowPageName = t.getOverflow().get(pageName).elementAt(index);
-                                    Vector overflowPageBody = deserializePage(overflowPageName);
-                                    overflowPageBody.addElement(newEntry);
-                                    Collections.sort(overflowPageBody);
-                                    serializePage(overflowPageName,overflowPageBody);
-                                    t.getOverflowSizes().get(pageName).setElementAt(t.getOverflowSizes().get(pageName).elementAt(index)+1,index);
-                                }else{
-                                    //create new overflow
-                                    String ofPageName;
-                                    try {
-                                        ofPageName = createPage(tableName);
-                                        Vector<Tuple> ofPageBody = new Vector<>();
-                                        ofPageBody.addElement(newEntry);
-                                        t.getOverflow().get(pageName).addElement(ofPageName);
-                                        t.getOverflowSizes().get(pageName).addElement(1);
-                                        serializePage(ofPageName, ofPageBody);
-
-                                    } catch (IOException e) {
-                                        e.printStackTrace();
-                                    }
-                                }
+                        //if we are not in the last page
+                        //insert in overFlow
+                        if (t.getOverflow().get(pageName) != null) {
+                            int index = 0;
+                            //find index of overflow page with a vacancy
+                            while (index < t.getOverflow().get(pageName).size() && t.getOverflowSizes().get(pageName).elementAt(index) == N) {
+                                index++;
+                            }
+                            if (index < t.getOverflow().get(pageName).size()) {
+                                //insert in this overflow
+                                String overflowPageName = t.getOverflow().get(pageName).elementAt(index);
+                                Vector overflowPageBody = deserializePage(overflowPageName);
+                                overflowPageBody.addElement(newEntry);
+                                Collections.sort(overflowPageBody);
+                                serializePage(overflowPageName, overflowPageBody);
+                                t.getOverflowSizes().get(pageName).setElementAt(t.getOverflowSizes().get(pageName).elementAt(index) + 1, index);
                             } else {
-                                //CreateFirstOverFlow
-                                Vector<String> overFlowPagesNames = new Vector<>();
-                                Vector<Integer> overFlowSizes = new Vector<>();
+                                //if all over flow pages were full (Size = N) -> create new overflow
                                 String ofPageName;
                                 try {
                                     ofPageName = createPage(tableName);
                                     Vector<Tuple> ofPageBody = new Vector<>();
                                     ofPageBody.addElement(newEntry);
-                                    overFlowPagesNames.addElement(ofPageName);
-                                    overFlowSizes.add(1);
-                                    t.getOverflow().put(ofPageName, overFlowPagesNames);
-                                    t.getOverflowSizes().put(pageName,overFlowSizes);
-
+                                    t.getOverflow().get(pageName).addElement(ofPageName);
+                                    t.getOverflowSizes().get(pageName).addElement(1);
                                     serializePage(ofPageName, ofPageBody);
 
                                 } catch (IOException e) {
                                     e.printStackTrace();
                                 }
                             }
+                        } else {
+                            //CreateFirstOverFlow
+                            Vector<String> overFlowPagesNames = new Vector<>();
+                            Vector<Integer> overFlowSizes = new Vector<>();
+                            String ofPageName;
+                            try {
+                                ofPageName = createPage(tableName);
+                                Vector<Tuple> ofPageBody = new Vector<>();
+                                ofPageBody.addElement(newEntry);
+                                overFlowPagesNames.addElement(ofPageName);
+                                overFlowSizes.add(1);
+                                t.getOverflow().put(ofPageName, overFlowPagesNames);
+                                t.getOverflowSizes().put(pageName, overFlowSizes);
+
+                                serializePage(ofPageName, ofPageBody);
+
+                            } catch (IOException e) {
+                                e.printStackTrace();
+                            }
+
                         }
                     } else {
                         //if we are in the last page -> create a new page
@@ -392,12 +377,12 @@ public class DBApp implements DBAppInterface {
                             page.removeElementAt(N);
                             Collections.sort(page);
                             newPageBody.addElement(temp);
-                            serializePage(newPageName,newPageBody);
+                            serializePage(newPageName, newPageBody);
                             t.setNumberOfPages(1);
                             t.getMinPageValue().addElement(temp.getClusteringKey());
                             t.getPageSize().addElement(1);
-                            t.getMinPageValue().setElementAt(page.firstElement().getClusteringKey(),pageIndex);
-                            serializePage(pageName,page);
+                            t.getMinPageValue().setElementAt(page.firstElement().getClusteringKey(), pageIndex);
+                            serializePage(pageName, page);
 
                         } catch (IOException e) {
                             e.printStackTrace();
@@ -405,7 +390,7 @@ public class DBApp implements DBAppInterface {
                     }
                 }
             }
-            serializeTableInfo(tableName,t);
+            serializeTableInfo(tableName, t);
         } else {
             throw new DBAppException("Table Does Not Exist");
         }
@@ -669,7 +654,7 @@ public class DBApp implements DBAppInterface {
             table.getMinPageValue().removeElementAt(i);
             table.setNumberOfPages(-1);
         }
-        serializeTableInfo(tableName,table);
+        serializeTableInfo(tableName, table);
     }
 
     @Override
