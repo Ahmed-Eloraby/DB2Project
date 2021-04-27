@@ -23,12 +23,12 @@ public class DBApp implements DBAppInterface {
 
         Hashtable min = new Hashtable();
         min.put("id", "0");
-        min.put("name", "a");
+        min.put("name", "A");
         min.put("gpa", "0.7");
 
         Hashtable max = new Hashtable();
         max.put("id", "9");
-        max.put("name", "z");
+        max.put("name", "Z");
         max.put("gpa", "4");
 
 
@@ -84,6 +84,7 @@ public class DBApp implements DBAppInterface {
         try {
             BufferedReader br = new BufferedReader(new FileReader("src/main/resources/metadata.csv"));
             if (!br.ready()) {
+                br.close();
                 FileWriter csvWriter = new FileWriter("src/main/resources/metadata.csv", true);
                 csvWriter.append("Table Name");
                 csvWriter.append(",");
@@ -234,7 +235,7 @@ public class DBApp implements DBAppInterface {
                 }
                 Class type = value.getClass();
                 if (!(type.getName().equals(colType.get(columnName)))) {
-                    throw new DBAppException("Type Miss-match of Column: " + columnName);
+                    throw new DBAppException("Type Miss-match for Column: " + columnName + " , a " + type.getName() + " type should be inserted" );
                 }
                 Object min, max;
                 try {
@@ -245,12 +246,12 @@ public class DBApp implements DBAppInterface {
                         int zvalue = (int) (value);
                         int zmin = (int) (min);
                         if (zvalue < zmin) {
-                            throw new DBAppException("Value Inserted is less than minimum allowed" + columnName);
+                            throw new DBAppException("Value Inserted is less than minimum allowed column: " + columnName);
 
                         }
                         int zmax = (int) (max);
                         if (zvalue > zmax) {
-                            throw new DBAppException("Value inserted is larger than maximum value allowed for " + columnName);
+                            throw new DBAppException("Value inserted is larger than maximum value allowed for column: " + columnName);
                         }
 
 
@@ -258,27 +259,27 @@ public class DBApp implements DBAppInterface {
                         double zvalue = (double) (value);
                         double zmin = (double) (min);
                         if (zvalue < zmin) {
-                            throw new DBAppException("Value Inserted is less than minimum value allowed for " + columnName);
+                            throw new DBAppException("Value Inserted is less than minimum value allowed for column: " + columnName);
                         }
                         double zmax = (double) (max);
                         if (zvalue > zmax) {
-                            throw new DBAppException("Value inserted is larger than maximum value allowed for " + columnName);
+                            throw new DBAppException("Value inserted is larger than maximum value allowed for column: " + columnName);
                         }
                     } else if (value instanceof java.lang.String) {
                         String svalue = (String) (value);
                         String smin = (String) (min);
                         if ((svalue.compareTo(smin)) < 0) {
-                            throw new DBAppException("Value Inserted is less than minimum value allowed for " + columnName);
+                            throw new DBAppException("Value Inserted is less than minimum value allowed for column: " + columnName);
                         }
                         if (smin.length() > svalue.length()) {
-                            throw new DBAppException("Value length Inserted is less than minimum value allowed for " + columnName);
+                            throw new DBAppException("Value length Inserted is less than minimum value allowed for column: " + columnName);
                         }
                         String smax = (String) (max);
                         if ((svalue.compareTo(smax)) > 0) {
-                            throw new DBAppException("Value inserted is larger than maximum value allowed for " + columnName);
+                            throw new DBAppException("Value inserted is larger than maximum value allowed for column: " + columnName);
                         }
                         if (smax.length() < svalue.length()) {
-                            throw new DBAppException("Value length Inserted is larger than minimum value allowed for " + columnName);
+                            throw new DBAppException("Value length Inserted is larger than maximum value allowed for column: " + columnName);
                         }
                     } else if (value instanceof java.util.Date) {
                         SimpleDateFormat sdformat = new SimpleDateFormat("yyyy-MM-dd");
@@ -286,9 +287,9 @@ public class DBApp implements DBAppInterface {
                         Date dmin = sdformat.parse(String.valueOf(min));
                         Date dmax = sdformat.parse(String.valueOf(max));
                         if (dvalue.compareTo(dmax) > 0) {
-                            throw new DBAppException("Date inserted Occurs after maximum allowable Date for " + columnName);
+                            throw new DBAppException("Date inserted Occurs after maximum allowable Date for column: " + columnName);
                         } else if (dvalue.compareTo(dmin) < 0) {
-                            throw new DBAppException("Date inserted Occurs before minimum allowable Date for " + columnName);
+                            throw new DBAppException("Date inserted Occurs before minimum allowable Date for column: " + columnName);
                         }
                     }
                 }  catch (NoSuchMethodException e) {
@@ -847,8 +848,8 @@ public class DBApp implements DBAppInterface {
     public Comparable validateInput(String tableName, Hashtable<String, Object> colNameValue, boolean checkPrimaryKey) throws DBAppException {
         if (tableExists(tableName)) {
             Hashtable<String, String> colType = new Hashtable();
-            Hashtable<String, String> colmin = new Hashtable();
-            Hashtable<String, String> colmax = new Hashtable();
+            Hashtable<String, String> colMin = new Hashtable();
+            Hashtable<String, String> colMax = new Hashtable();
             String primaryKey = "";
 
             try {
@@ -862,8 +863,8 @@ public class DBApp implements DBAppInterface {
                                 primaryKey = line[1];
                             }
                             colType.put(line[1], line[2]);
-                            colmin.put(line[1], line[5]);
-                            colmax.put(line[1], line[6]);
+                            colMin.put(line[1], line[5]);
+                            colMax.put(line[1], line[6]);
                             current = br.readLine();
                             if (current != null) {
                                 line = current.split(",");
@@ -894,26 +895,21 @@ public class DBApp implements DBAppInterface {
                 if (!(type.getName().equals(colType.get(columnName)))) {
                     throw new DBAppException("Type Miss-match of Column: " + columnName);
                 }
-                Object min, max;
 
-                Constructor constr = null;
                 try {
-                    constr = type.getConstructor(String.class);
-
-                    min = constr.newInstance(colmin.get(columnName));
-                    max = constr.newInstance(colmax.get(columnName));
-
-
+                    Constructor constructor = type.getConstructor(String.class);
+                    Object min = constructor.newInstance(colMin.get(columnName));
+                    Object max = constructor.newInstance(colMax.get(columnName));
                     if (value instanceof java.lang.Integer) {
                         int zvalue = (int) (value);
                         int zmin = (int) (min);
                         if (zvalue < zmin) {
-                            throw new DBAppException("Value Inserted is less than minimum allowed" + columnName);
+                            throw new DBAppException("Value Inserted is less than minimum allowed column: " + columnName);
 
                         }
                         int zmax = (int) (max);
                         if (zvalue > zmax) {
-                            throw new DBAppException("Value inserted is larger than maximum allowed" + columnName);
+                            throw new DBAppException("Value inserted is larger than maximum value allowed for column: " + columnName);
                         }
 
 
@@ -921,27 +917,27 @@ public class DBApp implements DBAppInterface {
                         double zvalue = (double) (value);
                         double zmin = (double) (min);
                         if (zvalue < zmin) {
-                            throw new DBAppException("Value Inserted is less than minimum allowed for" + columnName);
+                            throw new DBAppException("Value Inserted is less than minimum value allowed for column: " + columnName);
                         }
                         double zmax = (double) (max);
                         if (zvalue > zmax) {
-                            throw new DBAppException("Value inserted is larger than maximum allowed for" + columnName);
+                            throw new DBAppException("Value inserted is larger than maximum value allowed for column: " + columnName);
                         }
                     } else if (value instanceof java.lang.String) {
                         String svalue = (String) (value);
                         String smin = (String) (min);
                         if ((svalue.compareTo(smin)) < 0) {
-                            throw new DBAppException("Value Inserted is less than minimum allowed for" + columnName);
+                            throw new DBAppException("Value Inserted is less than minimum value allowed for column: " + columnName);
                         }
                         if (smin.length() > svalue.length()) {
-                            throw new DBAppException("Value length Inserted is less than minimum allowed for" + columnName);
+                            throw new DBAppException("Value length Inserted is less than minimum value allowed for column: " + columnName);
                         }
                         String smax = (String) (max);
                         if ((svalue.compareTo(smax)) > 0) {
-                            throw new DBAppException("Value inserted is larger than maximum allowed for" + columnName);
+                            throw new DBAppException("Value inserted is larger than maximum value allowed for column: " + columnName);
                         }
                         if (smax.length() < svalue.length()) {
-                            throw new DBAppException("Value length Inserted is larger than minimum allowed for" + columnName);
+                            throw new DBAppException("Value length Inserted is larger than maximum value allowed for column: " + columnName);
                         }
                     } else if (value instanceof java.util.Date) {
                         SimpleDateFormat sdformat = new SimpleDateFormat("yyyy-MM-dd");
@@ -949,9 +945,9 @@ public class DBApp implements DBAppInterface {
                         Date dmin = sdformat.parse(String.valueOf(min));
                         Date dmax = sdformat.parse(String.valueOf(max));
                         if (dvalue.compareTo(dmax) > 0) {
-                            throw new DBAppException("Date inserted Occurs after maximum allowable Date");
+                            throw new DBAppException("Date inserted Occurs after maximum allowable Date for column: " + columnName);
                         } else if (dvalue.compareTo(dmin) < 0) {
-                            throw new DBAppException("Date inserted Occurs before minimum allowable Date");
+                            throw new DBAppException("Date inserted Occurs before minimum allowable Date for column: " + columnName);
                         }
                     }
 
