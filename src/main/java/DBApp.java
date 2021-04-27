@@ -469,52 +469,6 @@ public class DBApp implements DBAppInterface {
         }
     }
 
-    public int getKeyIndex(Comparable key, Vector<Tuple> keysInPage) {
-        int lo = 0;
-        int hi = keysInPage.size() - 1;
-        int i = (lo + hi) / 2;
-
-        while (lo < hi) {
-            if (key.compareTo(keysInPage.elementAt(i).getClusteringKey()) == 0) {
-                return i;
-            } else if (key.compareTo(keysInPage.elementAt(i).getClusteringKey()) < 0) {
-                hi = i - 1;
-            } else {
-                lo = i + 1;
-            }
-
-            i = (lo + hi) / 2;
-        }
-        if (key.compareTo(keysInPage.elementAt(i).getClusteringKey()) == 0) {
-            return i;
-        }
-        return -1;
-    }
-
-
-    public int getPageIndex(Comparable key, Vector<Comparable> minimumValueInPage, int numberOfPages) {
-        int lo = 0, hi = numberOfPages - 1;
-        int i = (lo + hi) / 2;
-        while (lo < hi) {
-            System.out.println("Help!");
-            if (i != numberOfPages - 1) {
-                if (minimumValueInPage.elementAt(i).compareTo(key) < 0) {
-                    hi = i - 1;
-                } else {
-                    if (i != numberOfPages - 1) {
-                        if (minimumValueInPage.elementAt(i + 1).compareTo(key) > 0) {
-                            return i;
-                        } else {
-                            lo = hi + 1;
-                        }
-                    }
-                }
-            }
-            i = (lo + hi) / 2;
-        }
-        return i;
-    }
-
     @Override
     public void updateTable(String tableName, String clusteringKeyValue, Hashtable<String, Object> colNameValue) throws DBAppException {
         if (tableExists(tableName)) {
@@ -844,6 +798,52 @@ public class DBApp implements DBAppInterface {
 
         return v;
     }
+    public int getKeyIndex(Comparable key, Vector<Tuple> keysInPage) {
+        int lo = 0;
+        int hi = keysInPage.size() - 1;
+        int i = (lo + hi) / 2;
+
+        while (lo < hi) {
+            if (key.compareTo(keysInPage.elementAt(i).getClusteringKey()) == 0) {
+                return i;
+            } else if (key.compareTo(keysInPage.elementAt(i).getClusteringKey()) < 0) {
+                hi = i - 1;
+            } else {
+                lo = i + 1;
+            }
+
+            i = (lo + hi) / 2;
+        }
+        if (key.compareTo(keysInPage.elementAt(i).getClusteringKey()) == 0) {
+            return i;
+        }
+        return -1;
+    }
+
+
+    public int getPageIndex(Comparable key, Vector<Comparable> minimumValueInPage, int numberOfPages) {
+        int lo = 0, hi = numberOfPages - 1;
+        int i = (lo + hi) / 2;
+        while (lo < hi) {
+            System.out.println("Help!");
+            if (i != numberOfPages - 1) {
+                if (minimumValueInPage.elementAt(i).compareTo(key) < 0) {
+                    hi = i - 1;
+                } else {
+                    if (i != numberOfPages - 1) {
+                        if (minimumValueInPage.elementAt(i + 1).compareTo(key) > 0) {
+                            return i;
+                        } else {
+                            lo = hi + 1;
+                        }
+                    }
+                }
+            }
+            i = (lo + hi) / 2;
+        }
+        return i;
+    }
+
 
     public Comparable validateInput(String tableName, Hashtable<String, Object> colNameValue, boolean checkPrimaryKey) throws DBAppException {
         if (tableExists(tableName)) {
