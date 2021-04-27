@@ -1,5 +1,6 @@
 import java.io.*;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Hashtable;
 import java.util.Vector;
 
@@ -58,37 +59,13 @@ public class Table implements Serializable, Comparable {
     }
 
     public static void main(String[] args) {
-        Integer key = 0;
+        Integer key = 5;
         Vector<Integer>  keysInPage  = new Vector<>();
         keysInPage.addElement(0);
-        keysInPage.addElement(1);
         keysInPage.addElement(2);
-        keysInPage.addElement(3);
-        keysInPage.addElement(4);
-        keysInPage.addElement(5);
-        int lo = 0;
-        int hi = keysInPage.size() - 1;
-        int i = (lo + hi) / 2;
-        boolean f = false;
-        while (lo < hi) {
-            if (key.compareTo(keysInPage.elementAt(i)) == 0) {
-                System.out.println(i);
-                f=true;
-                break;
-            } else if (key.compareTo(keysInPage.elementAt(i)) < 0) {
-                hi = i - 1;
-            } else {
-                lo = i + 1;
-            }
-
-            i = (lo + hi) / 2;
-        }
-        if (!f && key.compareTo(keysInPage.elementAt(i)) == 0) {
-            System.out.println(i);
-        }
-        System.out.println(-1);
-
-
+        System.out.println(keysInPage);
+        System.out.println(keysInPage.subList(0,1/2));
+        System.out.println(keysInPage.subList(1/2,keysInPage.size()));
     }
 
 }

@@ -27,45 +27,40 @@ public class DBApp implements DBAppInterface {
         min.put("gpa", "0.7");
 
         Hashtable max = new Hashtable();
-        max.put("id", "9");
-        max.put("name", "Z");
+        max.put("id", "99999999");
+        max.put("name", "Zzzzzzzzzzzzzzzzzzzzzzzzzzz");
         max.put("gpa", "4");
 
 
         dbApp.createTable(strTableName, "id", htblColNameType, min, max);
 
         Hashtable htblColNameValue = new Hashtable();
-        htblColNameValue.put("id", new Integer(2343432));
+        htblColNameValue.put("id", new Integer(1));
         htblColNameValue.put("name", new String("Ahmed Noor"));
         htblColNameValue.put("gpa", new Double(0.95));
-
-
         dbApp.insertIntoTable(strTableName, htblColNameValue);
         htblColNameValue.clear();
-        htblColNameValue.put("id", new Integer(234432));
+        htblColNameValue.put("id", new Integer(2));
         htblColNameValue.put("name", new String("Ahmed Noor"));
         htblColNameValue.put("gpa", new Double(0.95));
         dbApp.insertIntoTable(strTableName, htblColNameValue);
+        htblColNameValue.clear( );
+        htblColNameValue.put("id", new Integer( 3 ));
+        htblColNameValue.put("name", new String("Dalia Noor" ) );
+        htblColNameValue.put("gpa", new Double( 1.25 ) );
+      dbApp.insertIntoTable( strTableName , htblColNameValue );
         System.out.println("DONE");
-////        htblColNameValue.clear( );
-//        htblColNameValue.put("id", new Integer( 5674567 ));
-//        htblColNameValue.put("name", new String("Dalia Noor" ) );
-//        htblColNameValue.put("gpa", new Double( 1.25 ) );
-//        dbApp.insertIntoTable( strTableName , htblColNameValue );
-//        htblColNameValue.clear( );
-//        htblColNameValue.put("id", new Integer( 23498 ));
-//        htblColNameValue.put("name", new String("John Noor" ) );
-//        htblColNameValue.put("gpa", new Double( 1.5 ) );
-//        dbApp.insertIntoTable( strTableName , htblColNameValue );
-//        htblColNameValue.clear( );
-//        htblColNameValue.put("id", new Integer( 78452 ));
-//        htblColNameValue.put("name", new String("Zaky Noor" ) );
-//        htblColNameValue.put("gpa", new Double( 0.88 ) );
-//        dbApp.insertIntoTable( strTableName , htblColNameValue );
 
-//        Hashtable<String,Integer> hs = new Hashtable();
-//        System.out.println(hs.get("sadasfd"));
-
+        htblColNameValue.clear( );
+        htblColNameValue.put("id", new Integer( 23498 ));
+        htblColNameValue.put("name", new String("John Noor" ) );
+        htblColNameValue.put("gpa", new Double( 1.5 ) );
+        dbApp.insertIntoTable( strTableName , htblColNameValue );
+        htblColNameValue.clear( );
+        htblColNameValue.put("id", new Integer( 78452 ));
+        htblColNameValue.put("name", new String("Zaky Noor" ) );
+        htblColNameValue.put("gpa", new Double( 0.88 ) );
+        dbApp.insertIntoTable( strTableName , htblColNameValue );
 
     }
 
@@ -78,6 +73,8 @@ public class DBApp implements DBAppInterface {
             is = new FileInputStream(fileName);
             prop.load(is);
             N = Integer.parseInt(prop.getProperty("MaximumRowsCountinPage"));
+            System.out.println("N: " + N);
+            System.out.println();
         } catch (IOException e) {
             e.printStackTrace();
         }
@@ -310,13 +307,14 @@ public class DBApp implements DBAppInterface {
             }
             //CREATE tuple to be inserted
             Tuple newEntry = new Tuple(allColValues.get(primaryKey), allColValues);
+            System.out.println("New Entry: " +newEntry);
             //FETCH Table info
             Table table = deserializeTableInfo(tableName);
             //if no pages found for the Table
             if (table.getNumberOfPages() == 0) {
                 //Create the First Page
+                System.out.println("Creating First Page ^^");
                 try {
-                    System.out.println("Creating new page :)");
                     Vector<Tuple> newPageBody = new Vector<>();
                     newPageBody.addElement(newEntry);
                     String newPageName = createPage(table.getName());
@@ -340,7 +338,6 @@ public class DBApp implements DBAppInterface {
                 //Fetch the vector of the page (deserialize)
                 Vector<Tuple> page = deserializePage(pageName);
                 int keyIndex = getKeyIndex(newEntry.getClusteringKey(), page);
-                System.out.println(keyIndex);
                 if (keyIndex != -1) {
                     //check if primary key exist in main page
                     throw new DBAppException("Clustering Key Already Exists");
@@ -357,38 +354,35 @@ public class DBApp implements DBAppInterface {
                 if (page.size() < N) {
                     // if there is space in the main page:
                     page.addElement(newEntry);
-                    Collections.sort(page);
+                    page.insertElementAt(newEntry,indexToInsertAt(newEntry.getClusteringKey(),page));
+                    //Collections.sort(page);
                     serializePage(pageName, page);
                     table.getMinPageValue().setElementAt(page.firstElement().getClusteringKey(), pageIndex);
-                    serializeTableInfo(tableName, table);
                 } else {
                     //Page is full
                     //check if last page
-                    if (pageIndex < table.getNumberOfPages() - 1) {
+//                    if (pageIndex < table.getNumberOfPages() - 1) {
                         //if we are not in the last page
                         //insert in overFlow
-                        Vector<Tuple> firsthalf = new Vector<>(page.subList(0, N / 2));
-                        Vector<Tuple> secondhalf = new Vector<>(page.subList(N / 2, N));
-
                         try {
-                            String newhalfpagename = createPage(tableName);
-                            table.getPageNames().insertElementAt(newhalfpagename, pageIndex + 1);
+                            page.insertElementAt(newEntry,indexToInsertAt(newEntry.getClusteringKey(),page));
+                            Vector<Tuple> firstHalf = new Vector<>(page.subList(0, (page.size()) / 2));
+                            Vector<Tuple> secondHalf = new Vector<>(page.subList((page.size()) / 2 , page.size()));
+
+
+                            String newHalfPageName = createPage(tableName);
+                            System.out.println("New Half: " + newHalfPageName);
+                            table.getPageNames().insertElementAt(newHalfPageName, pageIndex + 1);
                             table.getMinPageValue().insertElementAt(0, pageIndex + 1);
 
-                            if (secondhalf.firstElement().getClusteringKey().compareTo(newEntry.getClusteringKey()) < 0) {
-                                secondhalf.addElement(newEntry);
-                            } else {
-                                firsthalf.addElement(newEntry);
-                            }
-                            table.getMinPageValue().setElementAt(firsthalf.firstElement().getClusteringKey(), pageIndex);
-                            table.getMinPageValue().setElementAt(secondhalf.firstElement().getClusteringKey(), pageIndex + 1);
-
-                            serializePage(pageName, firsthalf);
-                            serializePage(newhalfpagename, secondhalf);
+                            table.getMinPageValue().setElementAt(firstHalf.elementAt(0).getClusteringKey(), pageIndex);
+                            table.getMinPageValue().setElementAt(secondHalf.elementAt(0).getClusteringKey(), pageIndex + 1);
+                            table.setNumberOfPages(1);
+                            serializePage(pageName, firstHalf);
+                            serializePage(newHalfPageName, secondHalf);
                         } catch (IOException e) {
                             e.printStackTrace();
                         }
-                        serializeTableInfo(tableName, table);
 
 //Over Flow Code
 //                        if (table.getOverflow().get(pageName) != null) {
@@ -441,28 +435,30 @@ public class DBApp implements DBAppInterface {
 //                            }
 //
 //                        }
-                    } else {
-                        //if we are in the last page -> create a new page
-                        Vector<Tuple> newPageBody = new Vector<>();
-                        Tuple temp = page.lastElement();
-                        try {
-                            String newPageName = createPage(table.getName());
-                            table.getPageNames().addElement(newPageName);
-                            page.addElement(newEntry);
-                            page.removeElementAt(N);
-                            Collections.sort(page);
-                            newPageBody.addElement(temp);
-                            serializePage(newPageName, newPageBody);
-                            table.setNumberOfPages(1);
-                            table.getMinPageValue().addElement(temp.getClusteringKey());
-                            table.getMinPageValue().setElementAt(page.firstElement().getClusteringKey(), pageIndex);
-                            serializePage(pageName, page);
-                            serializeTableInfo(tableName, table);
-                        } catch (IOException e) {
-                            e.printStackTrace();
-                        }
-                    }
+//                    } else {
+//                        //if we are in the last page -> create a new page
+//                        Vector<Tuple> newPageBody = new Vector<>();
+//                        Tuple temp = page.lastElement();
+//                        try {
+//                            System.out.println("Creating new page :)");
+//                            String newPageName = createPage(table.getName());
+//                            table.getPageNames().addElement(newPageName);
+//                            page.addElement(newEntry);
+//                            page.removeElementAt(N);
+//                            Collections.sort(page);
+//                            newPageBody.addElement(temp);
+//                            serializePage(newPageName, newPageBody);
+//                            table.setNumberOfPages(1);
+//                            table.getMinPageValue().addElement(temp.getClusteringKey());
+//                            table.getMinPageValue().setElementAt(page.firstElement().getClusteringKey(), pageIndex);
+//                            serializePage(pageName, page);
+//                            serializeTableInfo(tableName, table);
+//                        } catch (IOException e) {
+//                            e.printStackTrace();
+//                        }
+//                    }
                 }
+                serializeTableInfo(tableName, table);
             }
         } else {
             throw new DBAppException("Table Does Not Exist");
@@ -727,15 +723,19 @@ public class DBApp implements DBAppInterface {
 
     public String createPage(String TableName) throws IOException {
         LocalDateTime now = LocalDateTime.now();
-        String pageName = TableName + now.getYear() + now.getDayOfYear() + now.getHour() + now.getMinute() + now.getSecond();
+        String pageName = TableName + now.getDayOfYear() + now.getHour() + now.getMinute() + now.getSecond()+now.getNano();
         try {
             ObjectOutputStream o = new
                     ObjectOutputStream(
                     new FileOutputStream("src/main/resources/data/" + pageName + ".class"));
             o.close();
-        } catch (IOException e) {
+            //bellow line used to avoid issue when java freezes the time
+            Thread.sleep(10);
+        } catch (IOException | InterruptedException e) {
             System.out.println(e);
         }
+
+        System.out.println("Creating new Page:" + pageName);
         return pageName;
     }
 
@@ -777,7 +777,7 @@ public class DBApp implements DBAppInterface {
         } catch (IOException i) {
             i.printStackTrace();
         }
-        System.out.println(name);
+        System.out.println("Serializing Page: " + name);
         for (Tuple t : pageBody) {
             System.out.println(t);
         }
@@ -844,7 +844,21 @@ public class DBApp implements DBAppInterface {
         return i;
     }
 
-
+    public int indexToInsertAt(Comparable key, Vector<Tuple> keysInPage){
+        int lo = 0;
+        int hi = keysInPage.size() - 1;
+        int i = -1;
+        while (lo <= hi) {
+            i = (lo + hi) / 2;
+            System.out.println("I : " + i);
+            if (key.compareTo(keysInPage.elementAt(i).getClusteringKey()) < 0) {
+                hi = i - 1;
+            } else {
+                lo = i + 1;
+            }
+        }
+        return i;
+    }
     public Comparable validateInput(String tableName, Hashtable<String, Object> colNameValue, boolean checkPrimaryKey) throws DBAppException {
         if (tableExists(tableName)) {
             Hashtable<String, String> colType = new Hashtable();
