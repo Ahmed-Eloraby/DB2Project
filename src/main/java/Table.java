@@ -1,8 +1,9 @@
 import java.io.*;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.Hashtable;
-import java.util.Vector;
+import java.lang.reflect.Constructor;
+import java.lang.reflect.InvocationTargetException;
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
+import java.util.*;
 
 public class Table implements Serializable, Comparable {
     private String name;
@@ -23,11 +24,44 @@ public class Table implements Serializable, Comparable {
         this.overflowSizes = new Hashtable<>();
     }
 
+    public static void main(String[] args) {
+        Object value = new Date();
+        Class type = value.getClass();
+        System.out.println("Type: "+ type.getName());
+        Constructor constructor = null;
+        try {
+
+            constructor = type.getConstructor(String.class);
+
+            Object min = constructor.newInstance("2011-02-02");
+            Object max = constructor.newInstance("2013-02-02");
+            SimpleDateFormat sdformat = new SimpleDateFormat("yyyy-MM-dd");
+            Date dvalue = sdformat.parse(String.valueOf(value));
+            Date dmin = null;
+            dmin = sdformat.parse(String.valueOf(min));
+
+            Date dmax = sdformat.parse(String.valueOf(max));
+            if (dvalue.compareTo(dmax) > 0) {
+                System.out.println("Date inserted Occurs after maximum allowable Date for column: ");
+            } else if (dvalue.compareTo(dmin) < 0) {
+                System.out.println("Date inserted Occurs before minimum allowable Date for column: ");
+            }
+        } catch (ParseException e) {
+            e.printStackTrace();
+        } catch (NoSuchMethodException e) {
+            e.printStackTrace();
+        } catch (InvocationTargetException e) {
+            e.printStackTrace();
+        } catch (InstantiationException e) {
+            e.printStackTrace();
+        } catch (IllegalAccessException e) {
+            e.printStackTrace();
+        }
+    }
 
     public Hashtable<String, Vector<Integer>> getOverflowSizes() {
         return overflowSizes;
     }
-
 
     public Hashtable<String, Vector<String>> getOverflow() {
         return overflow;
@@ -56,16 +90,6 @@ public class Table implements Serializable, Comparable {
     @Override
     public int compareTo(Object o) {
         return this.getName().compareTo(((Table) o).getName());
-    }
-
-    public static void main(String[] args) {
-        Integer key = 5;
-        Vector<Integer>  keysInPage  = new Vector<>();
-        keysInPage.addElement(0);
-        keysInPage.addElement(2);
-        System.out.println(keysInPage);
-        System.out.println(keysInPage.subList(0,1/2));
-        System.out.println(keysInPage.subList(1/2,keysInPage.size()));
     }
 
 }
