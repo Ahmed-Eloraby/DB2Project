@@ -4,64 +4,23 @@ import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.*;
 
 public class DBApp implements DBAppInterface {
     static int N = 0;
-    HashMap<String, HashMap<String, String>> tableData = new HashMap<>();
-
-    public static void main(String[] args) throws DBAppException {
-        String strTableName = "Student";
-        DBApp dbApp = new DBApp();
-        dbApp.init();
-        Hashtable htblColNameType = new Hashtable();
-
-        htblColNameType.put("id", "java.lang.Integer");
-        htblColNameType.put("name", "java.lang.String");
-        htblColNameType.put("gpa", "java.lang.Double");
-
-        Hashtable min = new Hashtable();
-        min.put("id", "0");
-        min.put("name", "A");
-        min.put("gpa", "0.7");
-
-        Hashtable max = new Hashtable();
-        max.put("id", "99999999");
-        max.put("name", "Zzzzzzzzzzzzzzzzzzzzzzzzzzz");
-        max.put("gpa", "4");
 
 
-        dbApp.createTable(strTableName, "id", htblColNameType, min, max);
-
-        Hashtable htblColNameValue = new Hashtable();
-        htblColNameValue.put("id", new Integer(1));
-        htblColNameValue.put("name", new String("Ahmed Noor"));
-        htblColNameValue.put("gpa", new Double(0.95));
-        dbApp.insertIntoTable(strTableName, htblColNameValue);
-//        htblColNameValue.clear();
-//        htblColNameValue.put("id", new Integer(2));
-//        htblColNameValue.put("name", new String("Ahmed Noor"));
-//        htblColNameValue.put("gpa", new Double(0.95));
-//        dbApp.insertIntoTable(strTableName, htblColNameValue);
-//        htblColNameValue.clear();
-//        htblColNameValue.put("id", new Integer(3));
-//        htblColNameValue.put("name", new String("Dalia Noor"));
-//        htblColNameValue.put("gpa", new Double(1.25));
-//        dbApp.insertIntoTable(strTableName, htblColNameValue);
-//        System.out.println("DONE");
-//
-//        htblColNameValue.clear();
-//        htblColNameValue.put("id", new Integer(23498));
-//        htblColNameValue.put("name", new String("John Noor"));
-//        htblColNameValue.put("gpa", new Double(1.5));
-//        dbApp.insertIntoTable(strTableName, htblColNameValue);
-//        htblColNameValue.clear();
-//        htblColNameValue.put("id", new Integer(78452));
-//        htblColNameValue.put("name", new String("Zaky Noor"));
-//        htblColNameValue.put("gpa", new Double(0.88));
-//        dbApp.insertIntoTable(strTableName, htblColNameValue);
-
+    public void printAllTuplesOfTable(String name) {
+        //Check the value of pages
+        Table t = deserializeTableInfo(name);
+        Vector<String> pNames = t.getPageNames();
+        System.out.println(pNames);
+        for (String s : pNames) {
+            System.out.println("Page Name: " + s);
+            System.out.println(deserializePage(s));
+        }
     }
 
     @Override
@@ -73,8 +32,6 @@ public class DBApp implements DBAppInterface {
             is = new FileInputStream(fileName);
             prop.load(is);
             N = Integer.parseInt(prop.getProperty("MaximumRowsCountinPage"));
-            System.out.println("N: " + N);
-            System.out.println();
         } catch (IOException e) {
             e.printStackTrace();
         }
@@ -188,9 +145,9 @@ public class DBApp implements DBAppInterface {
     @Override
     public void insertIntoTable(String tableName, Hashtable<String, Object> colNameValue) throws DBAppException {
         if (tableExists(tableName)) {
-            Hashtable<String, String> colType = new Hashtable();
-            Hashtable<String, String> colMin = new Hashtable();
-            Hashtable<String, String> colMax = new Hashtable();
+            Hashtable<String, String> colType = new Hashtable<>();
+            Hashtable<String, String> colMin = new Hashtable<>();
+            Hashtable<String, String> colMax = new Hashtable<>();
             String primaryKey = "";
 
             try {
@@ -222,24 +179,21 @@ public class DBApp implements DBAppInterface {
             } catch (IOException e) {
                 e.printStackTrace();
             }
-            if (!(colNameValue.keySet()).contains(primaryKey)) {
+            if (!(colNameValue).containsKey(primaryKey)) {
                 throw new DBAppException("Primary Key Should Have a Value");
             }
             for (String columnName : colNameValue.keySet()) {
-                Object value = colNameValue.get(columnName);
-                System.out.println(value);
                 if (colType.get(columnName) == null) {
                     throw new DBAppException("Column Does not Exist");
                 }
+                Object value = colNameValue.get(columnName);
                 Class type = value.getClass();
                 if (!(type.getName().equals(colType.get(columnName)))) {
                     throw new DBAppException("Type Miss-match for Column: " + columnName + " , a " + type.getName() + " type should be inserted");
                 }
                 if (type.getName().charAt(11) == 'a') {
                     try {
-                        System.out.println(value);
-                        SimpleDateFormat sdformat = new SimpleDateFormat("yyyy-MM-dd");
-                        Date dvalue = sdformat.parse(String.valueOf(value));
+                        Date dvalue =(Date)value;
                         Date dmin = new SimpleDateFormat("yyyy-MM-dd").parse(colMin.get(columnName));
                         Date dmax = new SimpleDateFormat("yyyy-MM-dd").parse(colMax.get(columnName));
                         if (dvalue.compareTo(dmax) > 0) {
@@ -248,7 +202,7 @@ public class DBApp implements DBAppInterface {
                             throw new DBAppException("Date inserted Occurs before minimum allowable Date for column: " + columnName);
                         }
                     } catch (ParseException e) {
-
+                        throw new DBAppException(e.getMessage());
                     }
 
                 } else {
@@ -304,14 +258,13 @@ public class DBApp implements DBAppInterface {
             //FETCH Table info
             Table table = deserializeTableInfo(tableName);
             //if no pages found for the Table
-            if (table.getNumberOfPages() == 0) {
+            if (table.getPageNames().size() == 0) {
                 //Create the First Page
                 try {
                     Vector<Tuple> newPageBody = new Vector<>();
                     newPageBody.addElement(newEntry);
                     String newPageName = createPage(table.getName());
                     table.getPageNames().addElement(newPageName);
-                    table.setNumberOfPages(1);
                     table.getMinPageValue().addElement(newEntry.getClusteringKey());
                     serializePage(newPageName, newPageBody);
                     serializeTableInfo(tableName, table);
@@ -322,7 +275,7 @@ public class DBApp implements DBAppInterface {
             } else {
                 //if Page(s) was found
                 //get index where the range
-                int pageIndex = getPageIndex(newEntry.getClusteringKey(), table.getMinPageValue(), table.getNumberOfPages());
+                int pageIndex = getPageIndex(newEntry.getClusteringKey(), table.getMinPageValue());
                 //page name
                 String pageName = (String) table.getPageNames().elementAt(pageIndex);
                 //Fetch the vector of the page (deserialize)
@@ -343,17 +296,12 @@ public class DBApp implements DBAppInterface {
                 }
                 if (page.size() < N) {
                     // if there is space in the main page:
-                    page.addElement(newEntry);
                     page.insertElementAt(newEntry, indexToInsertAt(newEntry.getClusteringKey(), page));
                     //Collections.sort(page);
                     serializePage(pageName, page);
                     table.getMinPageValue().setElementAt(page.firstElement().getClusteringKey(), pageIndex);
                 } else {
                     //Page is full
-                    //check if last page
-//                    if (pageIndex < table.getNumberOfPages() - 1) {
-                    //if we are not in the last page
-                    //insert in overFlow
                     try {
                         page.insertElementAt(newEntry, indexToInsertAt(newEntry.getClusteringKey(), page));
                         Vector<Tuple> firstHalf = new Vector<>(page.subList(0, (page.size()) / 2));
@@ -366,86 +314,11 @@ public class DBApp implements DBAppInterface {
 
                         table.getMinPageValue().setElementAt(firstHalf.elementAt(0).getClusteringKey(), pageIndex);
                         table.getMinPageValue().setElementAt(secondHalf.elementAt(0).getClusteringKey(), pageIndex + 1);
-                        table.setNumberOfPages(1);
                         serializePage(pageName, firstHalf);
                         serializePage(newHalfPageName, secondHalf);
                     } catch (IOException e) {
                         e.printStackTrace();
                     }
-
-//Over Flow Code
-//                        if (table.getOverflow().get(pageName) != null) {
-//                            int index = 0;
-//                            //find index of overflow page with a vacancy
-//                            while (index < table.getOverflow().get(pageName).size() && table.getOverflowSizes().get(pageName).elementAt(index) == N) {
-//                                index++;
-//                            }
-//                            if (index < table.getOverflow().get(pageName).size()) {
-//                                //insert in this overflow
-//                                String overflowPageName = table.getOverflow().get(pageName).elementAt(index);
-//                                Vector overflowPageBody = deserializePage(overflowPageName);
-//                                overflowPageBody.addElement(newEntry);
-//                                Collections.sort(overflowPageBody);
-//                                serializePage(overflowPageName, overflowPageBody);
-//                                table.getOverflowSizes().get(pageName).setElementAt(table.getOverflowSizes().get(pageName).elementAt(index) + 1, index);
-//                            } else {
-//                                //if all over flow pages were full (Size = N) -> create new overflow
-//                                String ofPageName;
-//                                try {
-//                                    ofPageName = createPage(tableName);
-//                                    Vector<Tuple> ofPageBody = new Vector<>();
-//                                    ofPageBody.addElement(newEntry);
-//                                    table.getOverflow().get(pageName).addElement(ofPageName);
-//                                    table.getOverflowSizes().get(pageName).addElement(1);
-//                                    serializePage(ofPageName, ofPageBody);
-//
-//                                } catch (IOException e) {
-//                                    e.printStackTrace();
-//                                }
-//                            }
-//                        } else {
-//                            //CreateFirstOverFlow
-//                            Vector<String> overFlowPagesNames = new Vector<>();
-//                            Vector<Integer> overFlowSizes = new Vector<>();
-//                            String ofPageName;
-//                            try {
-//                                ofPageName = createPage(tableName);
-//                                Vector<Tuple> ofPageBody = new Vector<>();
-//                                ofPageBody.addElement(newEntry);
-//                                overFlowPagesNames.addElement(ofPageName);
-//                                overFlowSizes.add(1);
-//                                table.getOverflow().put(ofPageName, overFlowPagesNames);
-//                                table.getOverflowSizes().put(pageName, overFlowSizes);
-//
-//                                serializePage(ofPageName, ofPageBody);
-//
-//                            } catch (IOException e) {
-//                                e.printStackTrace();
-//                            }
-//
-//                        }
-//                    } else {
-//                        //if we are in the last page -> create a new page
-//                        Vector<Tuple> newPageBody = new Vector<>();
-//                        Tuple temp = page.lastElement();
-//                        try {
-//                            System.out.println("Creating new page :)");
-//                            String newPageName = createPage(table.getName());
-//                            table.getPageNames().addElement(newPageName);
-//                            page.addElement(newEntry);
-//                            page.removeElementAt(N);
-//                            Collections.sort(page);
-//                            newPageBody.addElement(temp);
-//                            serializePage(newPageName, newPageBody);
-//                            table.setNumberOfPages(1);
-//                            table.getMinPageValue().addElement(temp.getClusteringKey());
-//                            table.getMinPageValue().setElementAt(page.firstElement().getClusteringKey(), pageIndex);
-//                            serializePage(pageName, page);
-//                            serializeTableInfo(tableName, table);
-//                        } catch (IOException e) {
-//                            e.printStackTrace();
-//                        }
-//                    }
                 }
                 serializeTableInfo(tableName, table);
             }
@@ -456,12 +329,11 @@ public class DBApp implements DBAppInterface {
 
     @Override
     public void updateTable(String tableName, String clusteringKeyValue, Hashtable<String, Object> colNameValue) throws DBAppException {
-       validateInput(tableName,colNameValue);
         if (tableExists(tableName)) {
             Hashtable<String, String> colType = new Hashtable();
-            Hashtable<String, String> colmin = new Hashtable();
-            Hashtable<String, String> colmax = new Hashtable();
-            String primaryKey = "";
+            Hashtable<String, String> colMin = new Hashtable();
+            Hashtable<String, String> colMax = new Hashtable();
+            String clusteringKeyType = "";
 
             try {
                 BufferedReader br = new BufferedReader(new FileReader("src/main/resources/metadata.csv"));
@@ -471,11 +343,11 @@ public class DBApp implements DBAppInterface {
                     if (line[0].equals(tableName)) {
                         do {
                             if (line[3].equals("true")) {
-                                primaryKey = line[1];
+                                clusteringKeyType = line[2];
                             }
                             colType.put(line[1], line[2]);
-                            colmin.put(line[1], line[5]);
-                            colmax.put(line[1], line[6]);
+                            colMin.put(line[1], line[5]);
+                            colMax.put(line[1], line[6]);
                             current = br.readLine();
                             if (current != null) {
                                 line = current.split(",");
@@ -492,7 +364,6 @@ public class DBApp implements DBAppInterface {
             } catch (IOException e) {
                 e.printStackTrace();
             }
-
             for (String columnName : colNameValue.keySet()) {
                 Object value = colNameValue.get(columnName);
                 if (colType.get(columnName) == null) {
@@ -502,123 +373,155 @@ public class DBApp implements DBAppInterface {
                 if (!(type.getName().equals(colType.get(columnName)))) {
                     throw new DBAppException("Type Miss-match of Column: " + columnName);
                 }
-                Object min, max;
-                try {
-                    Constructor constr = type.getConstructor(String.class);
-                    min = constr.newInstance(colmin.get(columnName));
-                    max = constr.newInstance(colmax.get(columnName));
-                    if (value instanceof java.lang.Integer) {
-                        int zvalue = (int) (value);
-                        int zmin = (int) (min);
-                        if (zvalue < zmin) {
-                            throw new DBAppException("Value Inserted is less than minimum allowed" + columnName);
-
-                        }
-                        int zmax = (int) (max);
-                        if (zvalue > zmax) {
-                            throw new DBAppException("Value inserted is larger than maximum allowed" + columnName);
-                        }
-
-
-                    } else if (value instanceof java.lang.Double) {
-                        double zvalue = (double) (value);
-                        double zmin = (double) (min);
-                        if (zvalue < zmin) {
-                            throw new DBAppException("Value Inserted is less than minimum allowed for" + columnName);
-                        }
-                        double zmax = (double) (max);
-                        if (zvalue > zmax) {
-                            throw new DBAppException("Value inserted is larger than maximum allowed for" + columnName);
-                        }
-                    } else if (value instanceof java.lang.String) {
-                        String svalue = (String) (value);
-                        String smin = (String) (min);
-                        if ((svalue.compareTo(smin)) < 0) {
-                            throw new DBAppException("Value Inserted is less than minimum allowed for" + columnName);
-                        }
-                        if (smin.length() > svalue.length()) {
-                            throw new DBAppException("Value length Inserted is less than minimum allowed for" + columnName);
-                        }
-                        String smax = (String) (max);
-                        if ((svalue.compareTo(smax)) > 0) {
-                            throw new DBAppException("Value inserted is larger than maximum allowed for" + columnName);
-                        }
-                        if (smax.length() < svalue.length()) {
-                            throw new DBAppException("Value length Inserted is larger than minimum allowed for" + columnName);
-                        }
-                    } else if (value instanceof java.util.Date) {
-                        SimpleDateFormat sdformat = new SimpleDateFormat("yyyy-MM-dd");
-                        Date dvalue = sdformat.parse(String.valueOf(value));
-                        Date dmin = sdformat.parse(String.valueOf(min));
-                        Date dmax = sdformat.parse(String.valueOf(max));
+                if (type.getName().charAt(11) == 'a') {
+                    try {
+                        Date dvalue =(Date)value;
+                        Date dmin = new SimpleDateFormat("yyyy-MM-dd").parse(colMin.get(columnName));
+                        Date dmax = new SimpleDateFormat("yyyy-MM-dd").parse(colMax.get(columnName));
                         if (dvalue.compareTo(dmax) > 0) {
-                            throw new DBAppException("Date inserted Occurs after maximum allowable Date");
+                            throw new DBAppException("Date inserted Occurs after maximum allowable Date for column: " + columnName);
                         } else if (dvalue.compareTo(dmin) < 0) {
-                            throw new DBAppException("Date inserted Occurs before minimum allowable Date");
+                            throw new DBAppException("Date inserted Occurs before minimum allowable Date for column: " + columnName);
                         }
+                    } catch (ParseException e) {
+                        e.printStackTrace();
                     }
-                } catch (Exception e) {
+
+                } else {
+
+
+                    try {
+                        Constructor constructor = type.getConstructor(String.class);
+                        Object min = constructor.newInstance(colMin.get(columnName));
+                        Object max = constructor.newInstance(colMax.get(columnName));
+                        if (value instanceof java.lang.Integer) {
+                            int zvalue = (int) (value);
+                            int zmin = (int) (min);
+                            if (zvalue < zmin) {
+                                throw new DBAppException("Value Inserted is less than minimum allowed column: " + columnName);
+
+                            }
+                            int zmax = (int) (max);
+                            if (zvalue > zmax) {
+                                throw new DBAppException("Value inserted is larger than maximum value allowed for column: " + columnName);
+                            }
+
+
+                        } else if (value instanceof java.lang.Double) {
+                            double zvalue = (double) (value);
+                            double zmin = (double) (min);
+                            if (zvalue < zmin) {
+                                throw new DBAppException("Value Inserted is less than minimum value allowed for column: " + columnName);
+                            }
+                            double zmax = (double) (max);
+                            if (zvalue > zmax) {
+                                throw new DBAppException("Value inserted is larger than maximum value allowed for column: " + columnName);
+                            }
+                        } else if (value instanceof java.lang.String) {
+                            String svalue = (String) (value);
+                            String smin = (String) (min);
+                            if ((svalue.compareTo(smin)) < 0) {
+                                throw new DBAppException("Value Inserted is less than minimum value allowed for column: " + columnName);
+                            }
+
+                            String smax = (String) (max);
+                            if ((svalue.compareTo(smax)) > 0) {
+                                throw new DBAppException("Value inserted is larger than maximum value allowed for column: " + columnName);
+                            }
+
+                        }
+
+                    } catch (NoSuchMethodException | InvocationTargetException | InstantiationException | IllegalAccessException e) {
+                        e.printStackTrace();
+                    }
                 }
             }
-            Hashtable<String, Comparable> allColValues = new Hashtable<>();
-            for (String s : colType.keySet()) {
-                allColValues.put(s, (Comparable) colNameValue.get(s));
-            }
-            //CREATE tuple to be inserted
-            Tuple newEntry = new Tuple((Comparable) allColValues.get(primaryKey), allColValues);
-            //FETCH Table info
-            Table t = deserializeTableInfo(tableName);
-            if (t.getNumberOfPages() == 0) {
+
+            Table table = deserializeTableInfo(tableName);
+            if (table.getPageNames().size() == 0) {
                 throw new DBAppException("This Table has no records to update");
+
             } else {
-                int pageIndex = getPageIndex(clusteringKeyValue, t.getMinPageValue(), t.getNumberOfPages());
-                String pageName = (String) t.getPageNames().elementAt(pageIndex);
-                Vector<Tuple> page = deserializePage(pageName);
-                int keyIndex = getKeyIndex(clusteringKeyValue, page);
-                if (keyIndex == -1) {
-                    throw new DBAppException("Record doesn't exist");
+                switch (clusteringKeyType) {
+                    case "java.lang.Integer": {
+                        Integer primary = Integer.parseInt(clusteringKeyValue);
+                        int pageIndex = getPageIndex(primary, table.getMinPageValue());
+                        String pageName = table.getPageNames().elementAt(pageIndex);
+                        Vector<Tuple> page = deserializePage(pageName);
+                        int keyIndex = getKeyIndex(primary, page);
+                        if (keyIndex == -1) {
+                            throw new DBAppException("Record doesn't exist");
+                        }
+                        Hashtable<String, Comparable> allColValues = page.elementAt(keyIndex).getEntries();
+                        for (String s : colNameValue.keySet()) {
+                            allColValues.put(s, (Comparable) colNameValue.get(s));
+                        }
+                        page.elementAt(keyIndex).setEntries(allColValues);
+                        serializePage(pageName, page);
+                        break;
+                    }
+                    case "java.lang.Double": {
+                        Double primary = Double.parseDouble(clusteringKeyValue);
+                        int pageIndex = getPageIndex(primary, table.getMinPageValue());
+                        String pageName = table.getPageNames().elementAt(pageIndex);
+                        Vector<Tuple> page = deserializePage(pageName);
+                        int keyIndex = getKeyIndex((Comparable) primary, page);
+                        if (keyIndex == -1) {
+                            throw new DBAppException("Record doesn't exist");
+                        }
+                        Hashtable<String, Comparable> allColValues = page.elementAt(keyIndex).getEntries();
+                        for (String s : colNameValue.keySet()) {
+                            allColValues.put(s, (Comparable) colNameValue.get(s));
+                        }
+
+
+                        page.elementAt(keyIndex).setEntries(allColValues);
+                        serializePage(pageName, page);
+                        break;
+                    }
+                    case "java.lang.String": {
+                        int pageIndex = getPageIndex(clusteringKeyValue, table.getMinPageValue());
+                        String pageName = table.getPageNames().elementAt(pageIndex);
+                        Vector<Tuple> page = deserializePage(pageName);
+                        int keyIndex = getKeyIndex(clusteringKeyValue, page);
+                        if (keyIndex == -1) {
+                            throw new DBAppException("Record doesn't exist");
+                        }
+                        Hashtable<String, Comparable> allColValues = page.elementAt(keyIndex).getEntries();
+                        for (String s : colNameValue.keySet()) {
+                            allColValues.put(s, (Comparable) colNameValue.get(s));
+                        }
+                        page.elementAt(keyIndex).setEntries(allColValues);
+                        serializePage(pageName, page);
+                        break;
+                    }
+                    case "java.util.Date":
+                        SimpleDateFormat sdformat = new SimpleDateFormat("yyyy-MM-dd");
+                        try {
+                            Date primary = sdformat.parse(clusteringKeyValue);
+                            int pageIndex = getPageIndex(primary, table.getMinPageValue());
+                            String pageName = table.getPageNames().elementAt(pageIndex);
+                            Vector<Tuple> page = deserializePage(pageName);
+                            int keyIndex = getKeyIndex(primary, page);
+                            if (keyIndex == -1) {
+                                throw new DBAppException("Record doesn't exist");
+                            }
+                            Hashtable<String, Comparable> allColValues = page.elementAt(keyIndex).getEntries();
+                            for (String s : colNameValue.keySet()) {
+                                allColValues.put(s, (Comparable) colNameValue.get(s));
+                            }
+                            page.elementAt(keyIndex).setEntries(allColValues);
+                            serializePage(pageName, page);
+                        } catch (ParseException e) {
+                            e.printStackTrace();
+                        }
+                        break;
                 }
-                //Hashtable<String,Object> toUpdate=page.elementAt(keyIndex).getEntries();
-                //Hashtable<String,Object> Updated=new Hashtable<String,Object>();
-
-
-                page.elementAt(keyIndex).setEntries(allColValues);
-                serializePage(pageName, page);
-                serializeTableInfo(t.getName(), t);
             }
-//                if (page.size() > N) {
-//                    Tuple temp = page.lastElement();
-//                    page.removeElementAt(N);
-//                    if (pageIndex < t.getNumberOfPages()-1) {
-//                        Vector<Tuple> nextPage = deserializePage((String) t.getPageNames().elementAt(pageIndex));
-//                        if(nextPage.size() < N){
-//                            nextPage.addElement(temp);
-//                            Collections.sort(nextPage);
-            //  serializePage((String) t.getPageNames().elementAt(pageIndex),nextPage);
-//                        }
-//                        else{
-//                            //OverFlow Page Linkage
-//                        }
-//                    } else {
-//                        Vector<Tuple> newPageBody = new Vector<>();
-//                        newPageBody.addElement(temp);
-//                        try {
-//                            String newPageName = createPage(t.getName());
-//                            t.getPageNames().addElement(newPageName);
-//                            serializePage(newPageName, newPageBody);
-//                            t.setNumberOfPages(1);
-//                            t.getMinPageValue().addElement(temp.getClusteringKey());
-//                            serializeTableInfo(tableName, t);
-//                        } catch (IOException e) {
-//                            e.printStackTrace();
-//                        }
-//                    }
-//                }
-//                serializePage(pageName, page);
+        } else {
+            throw new DBAppException("Table Does not Exist");
         }
-        //   } else {
-        //     throw new DBAppException("Table Does Not Exist");
-        //}
+
     }
 
 
@@ -629,9 +532,10 @@ public class DBApp implements DBAppInterface {
         Vector<String> pageNames = table.getPageNames();
         //Looping over all pages
         if (!pageNames.isEmpty()) {
+            //if clustering value is not in the input
             if (clusteringValue == null) {
                 ArrayList<String> pagesToDelete = new ArrayList<>();
-                page:
+                boolean deleted = false;
                 for (String pageName : pageNames) {
                     //OverFlow to be done
                     Vector<Tuple> page = deserializePage(pageName);
@@ -641,13 +545,13 @@ public class DBApp implements DBAppInterface {
                         Tuple tuple = page.elementAt(i);
                         Hashtable<String, Comparable> entries = tuple.getEntries();
                         //Looping over every column in a tuple
-                        field:
                         for (String columnName : columnNameValue.keySet()) {
                             if (((Comparable) columnNameValue.get(columnName)).compareTo(entries.get(columnName)) != 0)
                                 continue tuple;
                         }
                         //delete row:
                         page.removeElementAt(i);
+                        deleted = true;
                     }
                     //update the page:
                     if (page.isEmpty()) {
@@ -666,11 +570,13 @@ public class DBApp implements DBAppInterface {
                     int i = pageNames.indexOf(s);
                     pageNames.removeElementAt(i);
                     table.getMinPageValue().removeElementAt(i);
-                    table.setNumberOfPages(-1);
+                }
+                if (!deleted) {
+                    throw new DBAppException("No record to delete");
                 }
             } else {
                 // If the Clustering Key is Known
-                int pageIndex = getPageIndex(clusteringValue, table.getMinPageValue(), table.getNumberOfPages());
+                int pageIndex = getPageIndex(clusteringValue, table.getMinPageValue());
                 String pageName = pageNames.elementAt(pageIndex);
                 Vector<Tuple> mainPageBody = deserializePage(pageName);
                 int keyIndex = getKeyIndex(clusteringValue, mainPageBody);
@@ -679,16 +585,19 @@ public class DBApp implements DBAppInterface {
                     if (mainPageBody.isEmpty()) {
                         pageNames.removeElementAt(pageIndex);
                         table.getMinPageValue().removeElementAt(pageIndex);
-                        table.setNumberOfPages(-1);
                         File f = new File("src/main/resources/data/" + pageName + ".class");
                         f.delete();
                     } else {
-                        table.getMinPageValue().setElementAt(mainPageBody.firstElement().getClusteringKey(), keyIndex);
+                        table.getMinPageValue().setElementAt(mainPageBody.firstElement().getClusteringKey(), pageIndex);
                         serializePage(pageName, mainPageBody);
                     }
+                } else {
+                    throw new DBAppException("Clustering key does not exist");
                 }
             }
             serializeTableInfo(tableName, table);
+        } else {
+            throw new DBAppException("No records to delete from");
         }
     }
 
@@ -704,7 +613,7 @@ public class DBApp implements DBAppInterface {
                     new FileOutputStream("src/main/resources/data/" + TableName + ".class"));
             o.close();
         } catch (IOException e) {
-            System.out.println(e);
+            e.printStackTrace();
         }
     }
 
@@ -712,12 +621,12 @@ public class DBApp implements DBAppInterface {
         LocalDateTime now = LocalDateTime.now();
         String pageName = TableName + now.getDayOfYear() + now.getHour() + now.getMinute() + now.getSecond() + now.getNano();
         try {
+            //bellow line used to avoid issue when java freezes the time
+            Thread.sleep(3);
             ObjectOutputStream o = new
                     ObjectOutputStream(
                     new FileOutputStream("src/main/resources/data/" + pageName + ".class"));
             o.close();
-            //bellow line used to avoid issue when java freezes the time
-            Thread.sleep(0, 1);
         } catch (IOException | InterruptedException e) {
             System.out.println(e);
         }
@@ -763,11 +672,6 @@ public class DBApp implements DBAppInterface {
         } catch (IOException i) {
             i.printStackTrace();
         }
-//        System.out.println("Serializing Page: " + name);
-//        for (Tuple t : pageBody) {
-//            System.out.println(t);
-//        }
-//        System.out.println();
     }
 
     public Vector<Tuple> deserializePage(String name) {
@@ -788,9 +692,9 @@ public class DBApp implements DBAppInterface {
     public int getKeyIndex(Comparable key, Vector<Tuple> keysInPage) {
         int lo = 0;
         int hi = keysInPage.size() - 1;
-        int i = (lo + hi) / 2;
-
-        while (lo < hi) {
+        int i;
+        while (lo <= hi) {
+            i = (lo + hi) / 2;
             if (key.compareTo(keysInPage.elementAt(i).getClusteringKey()) == 0) {
                 return i;
             } else if (key.compareTo(keysInPage.elementAt(i).getClusteringKey()) < 0) {
@@ -798,34 +702,30 @@ public class DBApp implements DBAppInterface {
             } else {
                 lo = i + 1;
             }
-
-            i = (lo + hi) / 2;
-        }
-        if (key.compareTo(keysInPage.elementAt(i).getClusteringKey()) == 0) {
-            return i;
         }
         return -1;
     }
 
 
-    public int getPageIndex(Comparable key, Vector<Comparable> minimumValueInPage, int numberOfPages) {
-        int lo = 0, hi = numberOfPages - 1;
-        int i = (lo + hi) / 2;
-        while (lo < hi) {
-            if (i != numberOfPages - 1) {
-                if (minimumValueInPage.elementAt(i).compareTo(key) < 0) {
-                    hi = i - 1;
-                } else {
-                    if (i != numberOfPages - 1) {
-                        if (minimumValueInPage.elementAt(i + 1).compareTo(key) > 0) {
-                            return i;
-                        } else {
-                            lo = hi + 1;
-                        }
+    public int getPageIndex(Comparable key, Vector<Comparable> minimumValueInPage) {
+        int lo = 0;
+        int hi = minimumValueInPage.size() - 1;
+        int i = -1;
+        while (lo <= hi) {
+            i = (lo + hi) / 2;
+            if (key.compareTo(minimumValueInPage.elementAt(i)) < 0) {
+                hi = i - 1;
+            } else {
+                if (i != minimumValueInPage.size() - 1) {
+                    if (key.compareTo(minimumValueInPage.elementAt(i + 1)) < 0) {
+                        return i;
+                    } else {
+                        lo = i + 1;
                     }
+                } else {
+                    return i;
                 }
             }
-            i = (lo + hi) / 2;
         }
         return i;
     }
@@ -833,19 +733,19 @@ public class DBApp implements DBAppInterface {
     public int indexToInsertAt(Comparable key, Vector<Tuple> keysInPage) {
         int lo = 0;
         int hi = keysInPage.size() - 1;
-        int i = -1;
         while (lo <= hi) {
-            i = (lo + hi) / 2;
+            int i = (lo + hi) / 2;
             if (key.compareTo(keysInPage.elementAt(i).getClusteringKey()) < 0) {
                 hi = i - 1;
             } else {
                 lo = i + 1;
             }
         }
-        return i;
+        return lo;
     }
 
-    public Comparable validateInput(String tableName, Hashtable<String, Object> colNameValue) throws DBAppException {
+    public Comparable validateInput(String tableName, Hashtable<String, Object> colNameValue) throws
+            DBAppException {
         if (tableExists(tableName)) {
             Hashtable<String, String> colType = new Hashtable();
             Hashtable<String, String> colMin = new Hashtable();
@@ -892,9 +792,7 @@ public class DBApp implements DBAppInterface {
                 }
                 if (type.getName().charAt(11) == 'a') {
                     try {
-                        System.out.println(value);
-                        SimpleDateFormat sdformat = new SimpleDateFormat("yyyy-MM-dd");
-                        Date dvalue = sdformat.parse(String.valueOf(value));
+                        Date dvalue =(Date)value;
                         Date dmin = new SimpleDateFormat("yyyy-MM-dd").parse(colMin.get(columnName));
                         Date dmax = new SimpleDateFormat("yyyy-MM-dd").parse(colMax.get(columnName));
                         if (dvalue.compareTo(dmax) > 0) {
@@ -903,12 +801,10 @@ public class DBApp implements DBAppInterface {
                             throw new DBAppException("Date inserted Occurs before minimum allowable Date for column: " + columnName);
                         }
                     } catch (ParseException e) {
-
+                        e.printStackTrace();
                     }
 
                 } else {
-
-
                     try {
                         Constructor constructor = type.getConstructor(String.class);
                         Object min = constructor.newInstance(colMin.get(columnName));
@@ -947,28 +843,8 @@ public class DBApp implements DBAppInterface {
                             if ((svalue.compareTo(smax)) > 0) {
                                 throw new DBAppException("Value inserted is larger than maximum value allowed for column: " + columnName);
                             }
-
-                        } else if (value instanceof java.util.Date) {
-                            SimpleDateFormat sdformat = new SimpleDateFormat("yyyy-MM-dd");
-                            Date dvalue = sdformat.parse(String.valueOf(value));
-                            Date dmin = sdformat.parse(String.valueOf(min));
-                            Date dmax = sdformat.parse(String.valueOf(max));
-                            if (dvalue.compareTo(dmax) > 0) {
-                                throw new DBAppException("Date inserted Occurs after maximum allowable Date for column: " + columnName);
-                            } else if (dvalue.compareTo(dmin) < 0) {
-                                throw new DBAppException("Date inserted Occurs before minimum allowable Date for column: " + columnName);
-                            }
                         }
-
-                    } catch (NoSuchMethodException e) {
-                        e.printStackTrace();
-                    } catch (InvocationTargetException e) {
-                        e.printStackTrace();
-                    } catch (InstantiationException e) {
-                        e.printStackTrace();
-                    } catch (IllegalAccessException e) {
-                        e.printStackTrace();
-                    } catch (ParseException e) {
+                    } catch (NoSuchMethodException | IllegalAccessException | InstantiationException | InvocationTargetException e) {
                         e.printStackTrace();
                     }
                 }
