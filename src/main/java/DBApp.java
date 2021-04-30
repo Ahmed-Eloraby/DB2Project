@@ -193,7 +193,7 @@ public class DBApp implements DBAppInterface {
                 }
                 if (type.getName().charAt(11) == 'a') {
                     try {
-                        Date dvalue =(Date)value;
+                        Date dvalue = (Date) value;
                         Date dmin = new SimpleDateFormat("yyyy-MM-dd").parse(colMin.get(columnName));
                         Date dmax = new SimpleDateFormat("yyyy-MM-dd").parse(colMax.get(columnName));
                         if (dvalue.compareTo(dmax) > 0) {
@@ -375,7 +375,7 @@ public class DBApp implements DBAppInterface {
                 }
                 if (type.getName().charAt(11) == 'a') {
                     try {
-                        Date dvalue =(Date)value;
+                        Date dvalue = (Date) value;
                         Date dmin = new SimpleDateFormat("yyyy-MM-dd").parse(colMin.get(columnName));
                         Date dmax = new SimpleDateFormat("yyyy-MM-dd").parse(colMax.get(columnName));
                         if (dvalue.compareTo(dmax) > 0) {
@@ -432,7 +432,7 @@ public class DBApp implements DBAppInterface {
                         }
 
                     } catch (NoSuchMethodException | InvocationTargetException | InstantiationException | IllegalAccessException e) {
-                        e.printStackTrace();
+                        throw new DBAppException(e.getMessage());
                     }
                 }
             }
@@ -513,7 +513,7 @@ public class DBApp implements DBAppInterface {
                             page.elementAt(keyIndex).setEntries(allColValues);
                             serializePage(pageName, page);
                         } catch (ParseException e) {
-                            e.printStackTrace();
+                            throw new DBAppException(e.getMessage());
                         }
                         break;
                 }
@@ -792,7 +792,7 @@ public class DBApp implements DBAppInterface {
                 }
                 if (type.getName().charAt(11) == 'a') {
                     try {
-                        Date dvalue =(Date)value;
+                        Date dvalue = (Date) value;
                         Date dmin = new SimpleDateFormat("yyyy-MM-dd").parse(colMin.get(columnName));
                         Date dmax = new SimpleDateFormat("yyyy-MM-dd").parse(colMax.get(columnName));
                         if (dvalue.compareTo(dmax) > 0) {
@@ -801,7 +801,7 @@ public class DBApp implements DBAppInterface {
                             throw new DBAppException("Date inserted Occurs before minimum allowable Date for column: " + columnName);
                         }
                     } catch (ParseException e) {
-                        e.printStackTrace();
+                        throw new DBAppException(e.getMessage());
                     }
 
                 } else {
@@ -845,7 +845,7 @@ public class DBApp implements DBAppInterface {
                             }
                         }
                     } catch (NoSuchMethodException | IllegalAccessException | InstantiationException | InvocationTargetException e) {
-                        e.printStackTrace();
+                        throw new DBAppException(e.getMessage());
                     }
                 }
             }
