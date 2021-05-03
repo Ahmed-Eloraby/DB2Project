@@ -11,16 +11,26 @@ import java.util.*;
 public class DBApp implements DBAppInterface {
     static int N = 0;
 
+    public static void main(String[] args) {
+        DBApp dbApp = new DBApp();
+        dbApp.printAllTuplesOfTable("courses");
+    }
 
     public void printAllTuplesOfTable(String name) {
-        //Check the value of pages
+        //Check the  tuples in all pages
         Table t = deserializeTableInfo(name);
         Vector<String> pNames = t.getPageNames();
         System.out.println(pNames);
+        System.out.println("Min: \n" + t.getMinPageValue());
+        int n = 0;
         for (String s : pNames) {
             System.out.println("Page Name: " + s);
-            System.out.println(deserializePage(s));
+            Vector<Tuple> v=deserializePage(s);
+            System.out.println(v);
+            System.out.println("Number of Tuples in " +s+ "Page = " + v.size());
+            n+=v.size();
         }
+        System.out.println("Total number of Tuples = " + n);
     }
 
     @Override
@@ -144,18 +154,19 @@ public class DBApp implements DBAppInterface {
 
     @Override
     public void insertIntoTable(String tableName, Hashtable<String, Object> colNameValue) throws DBAppException {
-        if (tableExists(tableName)) {
             Hashtable<String, String> colType = new Hashtable<>();
             Hashtable<String, String> colMin = new Hashtable<>();
             Hashtable<String, String> colMax = new Hashtable<>();
             String primaryKey = "";
 
             try {
+                boolean found = false;
                 BufferedReader br = new BufferedReader(new FileReader("src/main/resources/metadata.csv"));
                 String current = br.readLine();
                 while (current != null) {
                     String[] line = current.split(",");
                     if (line[0].equals(tableName)) {
+                        found = true;
                         do {
                             if (line[3].equals("true")) {
                                 primaryKey = line[1];
@@ -173,6 +184,9 @@ public class DBApp implements DBAppInterface {
                     current = br.readLine();
                 }
                 br.close();
+                if(!found){
+                    throw new DBAppException("Table Does Not Exist");
+                }
 
             } catch (FileNotFoundException e) {
                 System.out.println("File is not right :(");
@@ -236,7 +250,7 @@ public class DBApp implements DBAppInterface {
                             String svalue = (String) (value);
                             String smin = (String) (min);
                             if ((svalue.compareTo(smin)) < 0) {
-                                throw new DBAppException("Value Inserted is less than minimum value allowed for column: " + columnName);
+                                throw new DBAppException("Value Inserted is less than minimum value allowed ("+smin+") for column: " + columnName);
                             }
                             String smax = (String) (max);
                             if ((svalue.compareTo(smax)) > 0) {
@@ -263,18 +277,21 @@ public class DBApp implements DBAppInterface {
                 try {
                     Vector<Tuple> newPageBody = new Vector<>();
                     newPageBody.addElement(newEntry);
-                    String newPageName = createPage(table.getName());
+
+                    Thread.sleep(1);
+                    LocalDateTime now = LocalDateTime.now();
+                    String newPageName = tableName + now.getDayOfYear() + now.getHour() + now.getMinute() + now.getSecond() + now.getNano();
                     table.getPageNames().addElement(newPageName);
                     table.getMinPageValue().addElement(newEntry.getClusteringKey());
                     serializePage(newPageName, newPageBody);
                     serializeTableInfo(tableName, table);
 
-                } catch (IOException e) {
-                    e.printStackTrace();
+                } catch (InterruptedException e) {
+                    throw new DBAppException(e.getMessage());
                 }
             } else {
                 //if Page(s) was found
-                //get index where the range
+                //get index of the page with the possible range
                 int pageIndex = getPageIndex(newEntry.getClusteringKey(), table.getMinPageValue());
                 //page name
                 String pageName = (String) table.getPageNames().elementAt(pageIndex);
@@ -283,21 +300,12 @@ public class DBApp implements DBAppInterface {
                 int keyIndex = getKeyIndex(newEntry.getClusteringKey(), page);
                 if (keyIndex != -1) {
                     //check if primary key exist in main page
-                    throw new DBAppException("Clustering Key Already Exists");
-//                } else {
-//                    //check if primary key exist in overflow pages
-//                    if (table.getOverflow().get(pageName) != null) {
-//                        for (String s : table.getOverflow().get(pageName)) {
-//                            Vector<Tuple> ofpage = deserializePage(s);
-//                            if (getKeyIndex(newEntry.getClusteringKey(), ofpage) != -1)
-//                                throw new DBAppException("Clustering Key Already Exists");
-//                        }
-//                    }
+                    throw new DBAppException("Clustering Key ("+page.elementAt(keyIndex).getEntries().get("course_id")
+                            +") Already Exists and you are trying to insert "+ newEntry.getEntries().get("course_id"));
                 }
                 if (page.size() < N) {
                     // if there is space in the main page:
                     page.insertElementAt(newEntry, indexToInsertAt(newEntry.getClusteringKey(), page));
-                    //Collections.sort(page);
                     serializePage(pageName, page);
                     table.getMinPageValue().setElementAt(page.firstElement().getClusteringKey(), pageIndex);
                 } else {
@@ -306,9 +314,9 @@ public class DBApp implements DBAppInterface {
                         page.insertElementAt(newEntry, indexToInsertAt(newEntry.getClusteringKey(), page));
                         Vector<Tuple> firstHalf = new Vector<>(page.subList(0, (page.size()) / 2));
                         Vector<Tuple> secondHalf = new Vector<>(page.subList((page.size()) / 2, page.size()));
-
-
-                        String newHalfPageName = createPage(tableName);
+                        Thread.sleep(1);
+                        LocalDateTime now = LocalDateTime.now();
+                        String newHalfPageName = tableName + now.getDayOfYear() + now.getHour() + now.getMinute() + now.getSecond() + now.getNano();
                         table.getPageNames().insertElementAt(newHalfPageName, pageIndex + 1);
                         table.getMinPageValue().insertElementAt(0, pageIndex + 1);
 
@@ -316,31 +324,27 @@ public class DBApp implements DBAppInterface {
                         table.getMinPageValue().setElementAt(secondHalf.elementAt(0).getClusteringKey(), pageIndex + 1);
                         serializePage(pageName, firstHalf);
                         serializePage(newHalfPageName, secondHalf);
-                    } catch (IOException e) {
-                        e.printStackTrace();
-                    }
+                    } catch (InterruptedException e) {
+                        throw new DBAppException(e.getMessage());                    }
                 }
                 serializeTableInfo(tableName, table);
             }
-        } else {
-            throw new DBAppException("Table Does Not Exist");
-        }
     }
 
     @Override
     public void updateTable(String tableName, String clusteringKeyValue, Hashtable<String, Object> colNameValue) throws DBAppException {
-        if (tableExists(tableName)) {
-            Hashtable<String, String> colType = new Hashtable();
+                Hashtable<String, String> colType = new Hashtable();
             Hashtable<String, String> colMin = new Hashtable();
             Hashtable<String, String> colMax = new Hashtable();
             String clusteringKeyType = "";
-
             try {
+                boolean found = false;
                 BufferedReader br = new BufferedReader(new FileReader("src/main/resources/metadata.csv"));
                 String current = br.readLine();
                 while (current != null) {
                     String[] line = current.split(",");
                     if (line[0].equals(tableName)) {
+                        found = true;
                         do {
                             if (line[3].equals("true")) {
                                 clusteringKeyType = line[2];
@@ -358,6 +362,9 @@ public class DBApp implements DBAppInterface {
                     current = br.readLine();
                 }
                 br.close();
+                if(!found){
+                    throw new DBAppException("Table Does Not Exist");
+                }
 
             } catch (FileNotFoundException e) {
                 System.out.println("File is not right :(");
@@ -518,10 +525,6 @@ public class DBApp implements DBAppInterface {
                         break;
                 }
             }
-        } else {
-            throw new DBAppException("Table Does not Exist");
-        }
-
     }
 
 
@@ -606,32 +609,17 @@ public class DBApp implements DBAppInterface {
         return null;
     }
 
-    public void createTableInfo(String TableName) {
+    private void createTableInfo(String TableName) {
         try {
+            FileOutputStream fileout =new FileOutputStream("src/main/resources/data/" + TableName + ".class");
             ObjectOutputStream o = new
                     ObjectOutputStream(
-                    new FileOutputStream("src/main/resources/data/" + TableName + ".class"));
+                    fileout);
             o.close();
+            fileout.close();
         } catch (IOException e) {
             e.printStackTrace();
         }
-    }
-
-    public String createPage(String TableName) throws IOException {
-        LocalDateTime now = LocalDateTime.now();
-        String pageName = TableName + now.getDayOfYear() + now.getHour() + now.getMinute() + now.getSecond() + now.getNano();
-        try {
-            //bellow line used to avoid issue when java freezes the time
-            Thread.sleep(3);
-            ObjectOutputStream o = new
-                    ObjectOutputStream(
-                    new FileOutputStream("src/main/resources/data/" + pageName + ".class"));
-            o.close();
-        } catch (IOException | InterruptedException e) {
-            System.out.println(e);
-        }
-
-        return pageName;
     }
 
     private void serializeTableInfo(String name, Table t) {
@@ -647,7 +635,7 @@ public class DBApp implements DBAppInterface {
         }
     }
 
-    public Table deserializeTableInfo(String name) {
+    private Table deserializeTableInfo(String name) {
         Table t = null;
         try {
             FileInputStream filein = new FileInputStream("src/main/resources/data/" + name + ".class");
@@ -674,7 +662,7 @@ public class DBApp implements DBAppInterface {
         }
     }
 
-    public Vector<Tuple> deserializePage(String name) {
+    private Vector<Tuple> deserializePage(String name) {
         Vector<Tuple> v = null;
         try {
             FileInputStream filein = new FileInputStream("src/main/resources/data/" + name + ".class");
@@ -689,7 +677,7 @@ public class DBApp implements DBAppInterface {
         return v;
     }
 
-    public int getKeyIndex(Comparable key, Vector<Tuple> keysInPage) {
+    private int getKeyIndex(Comparable key, Vector<Tuple> keysInPage) {
         int lo = 0;
         int hi = keysInPage.size() - 1;
         int i;
@@ -707,7 +695,7 @@ public class DBApp implements DBAppInterface {
     }
 
 
-    public int getPageIndex(Comparable key, Vector<Comparable> minimumValueInPage) {
+    private int getPageIndex(Comparable key, Vector<Comparable> minimumValueInPage) {
         int lo = 0;
         int hi = minimumValueInPage.size() - 1;
         int i = -1;
@@ -730,7 +718,7 @@ public class DBApp implements DBAppInterface {
         return i;
     }
 
-    public int indexToInsertAt(Comparable key, Vector<Tuple> keysInPage) {
+    private int indexToInsertAt(Comparable key, Vector<Tuple> keysInPage) {
         int lo = 0;
         int hi = keysInPage.size() - 1;
         while (lo <= hi) {
@@ -744,38 +732,40 @@ public class DBApp implements DBAppInterface {
         return lo;
     }
 
-    public Comparable validateInput(String tableName, Hashtable<String, Object> colNameValue) throws
-            DBAppException {
-        if (tableExists(tableName)) {
-            Hashtable<String, String> colType = new Hashtable();
-            Hashtable<String, String> colMin = new Hashtable();
-            Hashtable<String, String> colMax = new Hashtable();
-            String clusteringKeyColumn = "";
+    private Comparable validateInput(String tableName, Hashtable<String, Object> colNameValue) throws DBAppException {
+        Hashtable<String, String> colType = new Hashtable<>();
+        Hashtable<String, String> colMin = new Hashtable<>();
+        Hashtable<String, String> colMax = new Hashtable<>();
+        String clusteringKeyColumn = "";
 
-            try {
-                BufferedReader br = new BufferedReader(new FileReader("src/main/resources/metadata.csv"));
-                String current = br.readLine();
-                while (current != null) {
-                    String[] line = current.split(",");
-                    if (line[0].equals(tableName)) {
-                        do {
-                            if (line[3].equals("true")) {
-                                clusteringKeyColumn = line[1];
-                            }
-                            colType.put(line[1], line[2]);
-                            colMin.put(line[1], line[5]);
-                            colMax.put(line[1], line[6]);
-                            current = br.readLine();
-                            if (current != null) {
-                                line = current.split(",");
-                            }
-                        } while (current != null && line[0].equals(tableName));
-                        break;
-                    }
-                    current = br.readLine();
+        try {
+            boolean found = false;
+            BufferedReader br = new BufferedReader(new FileReader("src/main/resources/metadata.csv"));
+            String current = br.readLine();
+            while (current != null) {
+                String[] line = current.split(",");
+                if (line[0].equals(tableName)) {
+                    found = true;
+                    do {
+                        if (line[3].equals("true")) {
+                            clusteringKeyColumn = line[1];
+                        }
+                        colType.put(line[1], line[2]);
+                        colMin.put(line[1], line[5]);
+                        colMax.put(line[1], line[6]);
+                        current = br.readLine();
+                        if (current != null) {
+                            line = current.split(",");
+                        }
+                    } while (current != null && line[0].equals(tableName));
+                    break;
                 }
-                br.close();
-
+                current = br.readLine();
+            }
+            br.close();
+            if(!found){
+                throw new DBAppException("Table Does Not Exist");
+            }
             } catch (FileNotFoundException e) {
                 System.out.println("File is not right :(");
             } catch (IOException e) {
@@ -850,9 +840,6 @@ public class DBApp implements DBAppInterface {
                 }
             }
             return (Comparable) colNameValue.get(clusteringKeyColumn);
-        } else {
-            throw new DBAppException("Table Does Not Exist");
-        }
     }
 
 }
