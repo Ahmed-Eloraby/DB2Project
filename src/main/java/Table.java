@@ -34,4 +34,12 @@ public class Table implements Serializable, Comparable {
         return this.getName().compareTo(((Table) o).getName());
     }
 
+    @Override
+    public String toString() {
+        return "Table{\n" +
+                "name= '" + name + "'\n" +
+                ", pageNames= " + pageNames + "\n" +
+                ", minClusteringinAPage= " + minPageValue +
+                "\n}";
+    }
 }

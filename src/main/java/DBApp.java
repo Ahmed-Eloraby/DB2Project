@@ -60,7 +60,7 @@ public class DBApp implements DBAppInterface {
         htblColNameValue.clear();
         htblColNameValue.put("id", new Integer(23498));
         htblColNameValue.put("gpa", new Double(1.90));
-        dbApp.deleteFromTable("Student",htblColNameValue);
+        dbApp.deleteFromTable("Student", htblColNameValue);
         dbApp.printAllTuplesOfTable(strTableName);
     }
 
@@ -318,27 +318,30 @@ public class DBApp implements DBAppInterface {
                     } else if (dvalue.compareTo(dmin) < 0) {
                         throw new DBAppException("Date inserted Occurs before minimum allowable Date for column: " + columnName);
                     }
-                } catch (ParseException e) {
-                    throw new DBAppException(e.getMessage());
+                } catch (ClassCastException | ParseException e) {
+                    e.printStackTrace();
                 }
 
             } else {
 
+
                 try {
-                    Object min, max;
                     Constructor constructor = type.getConstructor(String.class);
-                    min = constructor.newInstance(colMin.get(columnName));
-                    max = constructor.newInstance(colMax.get(columnName));
+                    Object min = constructor.newInstance(colMin.get(columnName));
+                    Object max = constructor.newInstance(colMax.get(columnName));
                     if (value instanceof java.lang.Integer) {
                         int zvalue = (int) (value);
                         int zmin = (int) (min);
                         if (zvalue < zmin) {
                             throw new DBAppException("Value Inserted is less than minimum allowed column: " + columnName);
+
                         }
                         int zmax = (int) (max);
                         if (zvalue > zmax) {
                             throw new DBAppException("Value inserted is larger than maximum value allowed for column: " + columnName);
                         }
+
+
                     } else if (value instanceof java.lang.Double) {
                         double zvalue = (double) (value);
                         double zmin = (double) (min);
@@ -353,16 +356,18 @@ public class DBApp implements DBAppInterface {
                         String svalue = (String) (value);
                         String smin = (String) (min);
                         if ((svalue.compareTo(smin)) < 0) {
-                            throw new DBAppException("Value Inserted is less than minimum value allowed (" + smin + ") for column: " + columnName);
+                            throw new DBAppException("Value Inserted is less than minimum value allowed for column: " + columnName);
                         }
+
                         String smax = (String) (max);
                         if ((svalue.compareTo(smax)) > 0) {
                             throw new DBAppException("Value inserted is larger than maximum value allowed for column: " + columnName);
                         }
 
                     }
-                } catch (NoSuchMethodException | IllegalAccessException | InstantiationException | InvocationTargetException e) {
-                    e.printStackTrace();
+
+                } catch (NoSuchMethodException | InvocationTargetException | InstantiationException | IllegalAccessException | ClassCastException e) {
+                    throw new DBAppException(e.getMessage());
                 }
             }
         }
@@ -494,7 +499,7 @@ public class DBApp implements DBAppInterface {
                     } else if (dvalue.compareTo(dmin) < 0) {
                         throw new DBAppException("Date inserted Occurs before minimum allowable Date for column: " + columnName);
                     }
-                } catch (ParseException e) {
+                } catch (ClassCastException | ParseException e) {
                     e.printStackTrace();
                 }
 
@@ -542,7 +547,7 @@ public class DBApp implements DBAppInterface {
 
                     }
 
-                } catch (NoSuchMethodException | InvocationTargetException | InstantiationException | IllegalAccessException e) {
+                } catch (NoSuchMethodException | InvocationTargetException | InstantiationException | IllegalAccessException | ClassCastException e) {
                     throw new DBAppException(e.getMessage());
                 }
             }
@@ -550,8 +555,8 @@ public class DBApp implements DBAppInterface {
 
         Table table = deserializeTableInfo(tableName);
         if (table.getPageNames().size() == 0) {
-            throw new DBAppException("This Table has no records to update");
-
+            //throw new DBAppException("This Table has no records to update");
+            return;
         } else {
             switch (clusteringKeyType) {
                 case "java.lang.Integer": {
@@ -561,7 +566,8 @@ public class DBApp implements DBAppInterface {
                     Vector<Tuple> page = deserializePage(pageName);
                     int keyIndex = getKeyIndex(primary, page);
                     if (keyIndex == -1) {
-                        throw new DBAppException("Record doesn't exist");
+                        //throw new DBAppException("Record doesn't exist");
+                        return;
                     }
                     Hashtable<String, Comparable> allColValues = page.elementAt(keyIndex).getEntries();
                     for (String s : colNameValue.keySet()) {
@@ -578,7 +584,8 @@ public class DBApp implements DBAppInterface {
                     Vector<Tuple> page = deserializePage(pageName);
                     int keyIndex = getKeyIndex((Comparable) primary, page);
                     if (keyIndex == -1) {
-                        throw new DBAppException("Record doesn't exist");
+                        //throw new DBAppException("Record doesn't exist");
+                        return;
                     }
                     Hashtable<String, Comparable> allColValues = page.elementAt(keyIndex).getEntries();
                     for (String s : colNameValue.keySet()) {
@@ -596,7 +603,8 @@ public class DBApp implements DBAppInterface {
                     Vector<Tuple> page = deserializePage(pageName);
                     int keyIndex = getKeyIndex(clusteringKeyValue, page);
                     if (keyIndex == -1) {
-                        throw new DBAppException("Record doesn't exist");
+//                        throw new DBAppException("Record doesn't exist");
+                        return;
                     }
                     Hashtable<String, Comparable> allColValues = page.elementAt(keyIndex).getEntries();
                     for (String s : colNameValue.keySet()) {
@@ -615,7 +623,8 @@ public class DBApp implements DBAppInterface {
                         Vector<Tuple> page = deserializePage(pageName);
                         int keyIndex = getKeyIndex(primary, page);
                         if (keyIndex == -1) {
-                            throw new DBAppException("Record doesn't exist");
+                            //throw new DBAppException("Record doesn't exist");
+                            return;
                         }
                         Hashtable<String, Comparable> allColValues = page.elementAt(keyIndex).getEntries();
                         for (String s : colNameValue.keySet()) {
@@ -675,15 +684,16 @@ public class DBApp implements DBAppInterface {
                         serializePage(pageName, page);
                     }
                 }
+                if (!deleted) {
+                    // throw new DBAppException("No record to delete");
+                    return;
+                }
                 for (String s : pagesToDelete) {
                     File f = new File("src/main/resources/data/" + s + ".class");
                     f.delete();
                     int i = pageNames.indexOf(s);
                     pageNames.removeElementAt(i);
                     table.getMinPageValue().removeElementAt(i);
-                }
-                if (!deleted) {
-                    throw new DBAppException("No record to delete");
                 }
             } else {
                 // If the Clustering Key is Known
@@ -695,9 +705,12 @@ public class DBApp implements DBAppInterface {
                     for (String columnName : columnNameValue.keySet()) {
                         try {
                             if (((Comparable) columnNameValue.get(columnName)).compareTo(mainPageBody.elementAt(keyIndex).getEntries().get(columnName)) != 0)
-                                throw new DBAppException("No record to delete");
+                                // throw new DBAppException("No record to delete");
+                                return;
                         } catch (NullPointerException e) {
-                            throw new DBAppException("No record to delete");
+                            // throw new DBAppException("No record to delete");
+                            return;
+
                         }
                     }
                     mainPageBody.removeElementAt(keyIndex);
@@ -711,12 +724,15 @@ public class DBApp implements DBAppInterface {
                         serializePage(pageName, mainPageBody);
                     }
                 } else {
-                    throw new DBAppException("Clustering key does not exist");
+                    //throw new DBAppException("Clustering key does not exist");
+                    return;
                 }
             }
             serializeTableInfo(tableName, table);
         } else {
-            throw new DBAppException("No records to delete from");
+            //throw new DBAppException("No records to delete from");
+            return;
+
         }
     }
 
@@ -906,10 +922,9 @@ public class DBApp implements DBAppInterface {
                     } else if (dvalue.compareTo(dmin) < 0) {
                         throw new DBAppException("Date inserted Occurs before minimum allowable Date for column: " + columnName);
                     }
-                } catch (ParseException e) {
-                    throw new DBAppException(e.getMessage());
+                } catch (ClassCastException | ParseException e) {
+                    e.printStackTrace();
                 }
-
             } else {
                 try {
                     Constructor constructor = type.getConstructor(String.class);
@@ -949,8 +964,10 @@ public class DBApp implements DBAppInterface {
                         if ((svalue.compareTo(smax)) > 0) {
                             throw new DBAppException("Value inserted is larger than maximum value allowed for column: " + columnName);
                         }
+
                     }
-                } catch (NoSuchMethodException | IllegalAccessException | InstantiationException | InvocationTargetException e) {
+
+                } catch (NoSuchMethodException | InvocationTargetException | InstantiationException | IllegalAccessException | ClassCastException e) {
                     throw new DBAppException(e.getMessage());
                 }
             }
