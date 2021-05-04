@@ -153,6 +153,8 @@ public class DBApp implements DBAppInterface {
 
             try {
                 for (String s : colNameType.keySet()) {
+                    if (colNameMax.get(s) == null || colNameMin.get(s) == null)
+                        throw new DBAppException("You should Specify values for min and max on column " + s);
                     if (colNameMax.get(s).equals("") || colNameMin.get(s).equals(""))
                         throw new DBAppException("You should Specify values for min and max on column " + s);
                     switch (colNameType.get(s)) {
