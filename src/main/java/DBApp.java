@@ -2,68 +2,18 @@ import java.io.*;
 import java.lang.reflect.Constructor;
 
 import java.lang.reflect.InvocationTargetException;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.*;
+import java.util.stream.Collectors;
 
 public class DBApp implements DBAppInterface {
-    static int N = 0;
-
-    public static void main(String[] args) throws DBAppException {
-        String strTableName = "Student";
-        DBApp dbApp = new DBApp();
-        dbApp.init();
-        Hashtable htblColNameType = new Hashtable();
-        htblColNameType.put("id", "java.lang.Integer");
-        htblColNameType.put("name", "java.lang.String");
-        htblColNameType.put("gpa", "java.lang.Double");
-
-        Hashtable htblColNameMin = new Hashtable();
-        htblColNameMin.put("id", "0");
-        htblColNameMin.put("name", "A");
-        htblColNameMin.put("gpa", "0.0");
-
-        Hashtable htblColNameMax = new Hashtable();
-        htblColNameMax.put("id", "9999999");
-        htblColNameMax.put("name", "zzzzzzzzzzzz");
-        htblColNameMax.put("gpa", "999999999.0");
-        dbApp.createTable(strTableName, "id", htblColNameType, htblColNameMin, htblColNameMax);
-
-        Hashtable htblColNameValue = new Hashtable();
-        htblColNameValue.put("id", new Integer(2343432));
-        htblColNameValue.put("name", new String("Ahmed Noor"));
-        htblColNameValue.put("gpa", new Double(0.95));
-        dbApp.insertIntoTable(strTableName, htblColNameValue);
-        htblColNameValue.clear();
-        htblColNameValue.put("id", new Integer(453455));
-        htblColNameValue.put("name", new String("Ahmed Noor"));
-        htblColNameValue.put("gpa", new Double(0.95));
-        dbApp.insertIntoTable(strTableName, htblColNameValue);
-        htblColNameValue.clear();
-        htblColNameValue.put("id", new Integer(5674567));
-        htblColNameValue.put("name", new String("Dalia Noor"));
-        htblColNameValue.put("gpa", new Double(1.25));
-        dbApp.insertIntoTable(strTableName, htblColNameValue);
-        htblColNameValue.clear();
-        htblColNameValue.put("id", new Integer(23498));
-        htblColNameValue.put("name", new String("John Noor"));
-//        htblColNameValue.put("gpa", new Double(1.90));
-        dbApp.insertIntoTable(strTableName, htblColNameValue);
-        htblColNameValue.clear();
-        htblColNameValue.put("id", new Integer(78452));
-        htblColNameValue.put("name", new String("Zaky Noor"));
-        htblColNameValue.put("gpa", new Double(0.88));
-        dbApp.insertIntoTable(strTableName, htblColNameValue);
-        dbApp.printAllTuplesOfTable(strTableName);
-        htblColNameValue.clear();
-        htblColNameValue.put("id", new Integer(23498));
-        htblColNameValue.put("gpa", new Double(1.90));
-        dbApp.deleteFromTable("Student", htblColNameValue);
-        dbApp.printAllTuplesOfTable(strTableName);
-    }
-
+    static int N =0;
+    static int B =0;
     public void printAllTuplesOfTable(String name) {
         //Check the  tuples in all pages
         Table t = deserializeTableInfo(name);
@@ -90,6 +40,7 @@ public class DBApp implements DBAppInterface {
             is = new FileInputStream(fileName);
             prop.load(is);
             N = Integer.parseInt(prop.getProperty("MaximumRowsCountinPage"));
+            B = Integer.parseInt(prop.getProperty("MaximumKeysCountinIndexBucket"));
         } catch (IOException e) {
             e.printStackTrace();
         }
@@ -410,8 +361,7 @@ public class DBApp implements DBAppInterface {
             int keyIndex = getKeyIndex(newEntry.getClusteringKey(), page);
             if (keyIndex != -1) {
                 //check if primary key exist in main page
-                throw new DBAppException("Clustering Key (" + page.elementAt(keyIndex).getEntries().get("course_id")
-                        + ") Already Exists and you are trying to insert " + newEntry.getEntries().get("course_id"));
+                throw new DBAppException("Clustering Key Already Exist");
             }
             if (page.size() < N) {
                 // if there is space in the main page:
@@ -448,6 +398,7 @@ public class DBApp implements DBAppInterface {
         Hashtable<String, String> colMin = new Hashtable();
         Hashtable<String, String> colMax = new Hashtable();
         String clusteringKeyType = "";
+        String clusteringKeyName = "";
         try {
             boolean found = false;
             BufferedReader br = new BufferedReader(new FileReader("src/main/resources/metadata.csv"));
@@ -458,6 +409,7 @@ public class DBApp implements DBAppInterface {
                     found = true;
                     do {
                         if (line[3].equals("true")) {
+                            clusteringKeyName = line[1];
                             clusteringKeyType = line[2];
                         }
                         colType.put(line[1], line[2]);
@@ -476,6 +428,9 @@ public class DBApp implements DBAppInterface {
             if (!found) {
                 throw new DBAppException("Table Does Not Exist");
             }
+            if(colNameValue.containsKey(clusteringKeyName))
+                throw new DBAppException("Clustering Key can nt be updated");
+
 
         } catch (FileNotFoundException e) {
             System.out.println("File is not right :(");
@@ -506,8 +461,6 @@ public class DBApp implements DBAppInterface {
                 }
 
             } else {
-
-
                 try {
                     Constructor constructor = type.getConstructor(String.class);
                     Object min = constructor.newInstance(colMin.get(columnName));
@@ -517,14 +470,11 @@ public class DBApp implements DBAppInterface {
                         int zmin = (int) (min);
                         if (zvalue < zmin) {
                             throw new DBAppException("Value Inserted is less than minimum allowed column: " + columnName);
-
                         }
                         int zmax = (int) (max);
                         if (zvalue > zmax) {
                             throw new DBAppException("Value inserted is larger than maximum value allowed for column: " + columnName);
                         }
-
-
                     } else if (value instanceof java.lang.Double) {
                         double zvalue = (double) (value);
                         double zmin = (double) (min);
@@ -562,7 +512,12 @@ public class DBApp implements DBAppInterface {
         } else {
             switch (clusteringKeyType) {
                 case "java.lang.Integer": {
-                    Integer primary = Integer.parseInt(clusteringKeyValue);
+                    Integer primary = 0;
+                    try {
+                        primary = Integer.parseInt(clusteringKeyValue);
+                    }catch(Exception e){
+                        throw new DBAppException("ClusteringKeyValue Can not be parsed to Integer");
+                    }
                     int pageIndex = getPageIndex(primary, table.getMinPageValue());
                     String pageName = table.getPageNames().elementAt(pageIndex);
                     Vector<Tuple> page = deserializePage(pageName);
@@ -580,7 +535,12 @@ public class DBApp implements DBAppInterface {
                     break;
                 }
                 case "java.lang.Double": {
-                    Double primary = Double.parseDouble(clusteringKeyValue);
+                    Double primary = 0.0;
+                    try {
+                        primary= Double.parseDouble(clusteringKeyValue);
+                    }catch(Exception e){
+                        throw new DBAppException("ClusteringKeyValue Can not be parsed to Double");
+                    }
                     int pageIndex = getPageIndex(primary, table.getMinPageValue());
                     String pageName = table.getPageNames().elementAt(pageIndex);
                     Vector<Tuple> page = deserializePage(pageName);
@@ -593,8 +553,6 @@ public class DBApp implements DBAppInterface {
                     for (String s : colNameValue.keySet()) {
                         allColValues.put(s, (Comparable) colNameValue.get(s));
                     }
-
-
                     page.elementAt(keyIndex).setEntries(allColValues);
                     serializePage(pageName, page);
                     break;
@@ -635,7 +593,7 @@ public class DBApp implements DBAppInterface {
                         page.elementAt(keyIndex).setEntries(allColValues);
                         serializePage(pageName, page);
                     } catch (ParseException e) {
-                        throw new DBAppException(e.getMessage());
+                        throw new DBAppException("ClusteringKeyValue Can not be parsed to Date");
                     }
                     break;
             }
@@ -752,7 +710,7 @@ public class DBApp implements DBAppInterface {
             o.close();
             fileout.close();
         } catch (IOException e) {
-            e.printStackTrace();
+            e.getMessage();
         }
     }
 
@@ -765,7 +723,7 @@ public class DBApp implements DBAppInterface {
             out.close();
             fileout.close();
         } catch (IOException i) {
-            i.printStackTrace();
+            i.getMessage();
         }
     }
 
@@ -778,7 +736,7 @@ public class DBApp implements DBAppInterface {
             in.close();
             filein.close();
         } catch (IOException | ClassNotFoundException i) {
-            i.printStackTrace();
+            i.getMessage();
         }
 
         return t;
@@ -792,7 +750,7 @@ public class DBApp implements DBAppInterface {
             out.close();
             fileout.close();
         } catch (IOException i) {
-            i.printStackTrace();
+            i.getMessage();
         }
     }
 
@@ -805,7 +763,7 @@ public class DBApp implements DBAppInterface {
             in.close();
             filein.close();
         } catch (IOException | ClassNotFoundException i) {
-            i.printStackTrace();
+            i.getMessage();
         }
 
         return v;
@@ -903,7 +861,7 @@ public class DBApp implements DBAppInterface {
         } catch (FileNotFoundException e) {
             System.out.println("File is not right :(");
         } catch (IOException e) {
-            e.printStackTrace();
+            e.getMessage();
         }
         for (String columnName : colNameValue.keySet()) {
             Object value = colNameValue.get(columnName);
@@ -925,7 +883,7 @@ public class DBApp implements DBAppInterface {
                         throw new DBAppException("Date inserted Occurs before minimum allowable Date for column: " + columnName);
                     }
                 } catch (ClassCastException | ParseException e) {
-                    e.printStackTrace();
+                    e.getMessage();
                 }
             } else {
                 try {
