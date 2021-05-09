@@ -12,8 +12,9 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 public class DBApp implements DBAppInterface {
-    static int N =0;
-    static int B =0;
+    static int N = 0;
+    static int B = 0;
+
     public void printAllTuplesOfTable(String name) {
         //Check the  tuples in all pages
         Table t = deserializeTableInfo(name);
@@ -205,6 +206,59 @@ public class DBApp implements DBAppInterface {
 
     @Override
     public void createIndex(String tableName, String[] columnNames) throws DBAppException {
+        HashSet<String> ColNames = new HashSet<>();
+        Hashtable<String, String> colType = new Hashtable<>();
+        Hashtable<String, String> colMin = new Hashtable<>();
+        Hashtable<String, String> colMax = new Hashtable<>();
+        String primaryKey = "";
+        boolean found = false;
+        try {
+            BufferedReader br = new BufferedReader(new FileReader("src/main/resources/metadata.csv"));
+            String current = br.readLine();
+            while (current != null) {
+                String[] line = current.split(",");
+                if (line[0].equals(tableName)) {
+                    found = true;
+                    do {
+                        if (line[3].equals("true")) {
+                            primaryKey = line[1];
+                        }
+                        ColNames.add(line[1]);
+                        colType.put(line[1], line[2]);
+                        colMin.put(line[1], line[5]);
+                        colMax.put(line[1], line[6]);
+                        current = br.readLine();
+                        if (current != null) {
+                            line = current.split(",");
+                        }
+                    } while (current != null && line[0].equals(tableName));
+                    break;
+                }
+                current = br.readLine();
+            }
+            br.close();
+            if (!found) {
+                throw new DBAppException("Table Does Not Exist");
+            }
+        } catch (FileNotFoundException e) {
+            System.out.println("File is not right :(");
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        //check if all columns belong to the table
+        for (String col : columnNames) {
+            if (ColNames.contains(col)) {
+                ColNames.remove(col);
+            } else {
+                throw new DBAppException("Column does not exist: " + col);
+            }
+        }
+        //remove unneeded columns
+        for (String s : ColNames) {
+            colMin.remove(s);
+            colMax.remove(s);
+            colType.remove(s);
+        }
 
     }
 
@@ -428,7 +482,7 @@ public class DBApp implements DBAppInterface {
             if (!found) {
                 throw new DBAppException("Table Does Not Exist");
             }
-            if(colNameValue.containsKey(clusteringKeyName))
+            if (colNameValue.containsKey(clusteringKeyName))
                 throw new DBAppException("Clustering Key can nt be updated");
 
 
@@ -515,7 +569,7 @@ public class DBApp implements DBAppInterface {
                     Integer primary = 0;
                     try {
                         primary = Integer.parseInt(clusteringKeyValue);
-                    }catch(Exception e){
+                    } catch (Exception e) {
                         throw new DBAppException("ClusteringKeyValue Can not be parsed to Integer");
                     }
                     int pageIndex = getPageIndex(primary, table.getMinPageValue());
@@ -537,8 +591,8 @@ public class DBApp implements DBAppInterface {
                 case "java.lang.Double": {
                     Double primary = 0.0;
                     try {
-                        primary= Double.parseDouble(clusteringKeyValue);
-                    }catch(Exception e){
+                        primary = Double.parseDouble(clusteringKeyValue);
+                    } catch (Exception e) {
                         throw new DBAppException("ClusteringKeyValue Can not be parsed to Double");
                     }
                     int pageIndex = getPageIndex(primary, table.getMinPageValue());
@@ -698,8 +752,73 @@ public class DBApp implements DBAppInterface {
 
     @Override
     public Iterator selectFromTable(SQLTerm[] sqlTerms, String[] arrayOperators) throws DBAppException {
+        if (arrayOperators.length != sqlTerms.length - 1)
+            throw new DBAppException("Wrong statement");
+        for (String s : arrayOperators) {
+            switch (s.toLowerCase()) {
+                case "or":
+                case "xor":
+                case "and":
+                    continue;
+                default:
+                    throw new DBAppException("Wrong Operator: " + s);
+            }
+        }
+        for (SQLTerm term : sqlTerms) {
+            switch (term._strOperator){
+                case "=":
+                case ">":
+                case ">=":
+                case "<":
+                case "<=":
+                case "!=":
+                    break;
+                default:
+                    throw new DBAppException("Wrong Operator: " + term._strOperator);
+            }
+            boolean tableFound = false;
+            boolean columnFound = false;
+            try {
+                BufferedReader br = new BufferedReader(new FileReader("src/main/resources/metadata.csv"));
+                String current = br.readLine();
+                while (current != null) {
+                    String[] line = current.split(",");
+                    if (line[0].equals(term._strTableName)) {
+                        tableFound = true;
+                        do{
+                            if(line[1].equals(term._strColumnName)){
+                                columnFound = true;
+                                if(!term._objValue.getClass().getName().equals(line[2]))
+                                    throw new DBAppException("Wrong objvalue type for col: " + line[1]);
+                                break;
+                            }
+                            current = br.readLine();
+                            if (current != null) {
+                                line = current.split(",");
+                            }
+                        } while (current != null && line[0].equals(term._strTableName));
+                        break;
+                    }
+                    current = br.readLine();
+                }
+                br.close();
+                if (!tableFound) {
+                    throw new DBAppException("Table Does Not Exist");
+                }
+                if(!columnFound){
+                    throw new DBAppException("Column Does Not Exist");
+
+                }
+            } catch (FileNotFoundException e) {
+                System.out.println("File is not right :(");
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+
+        }
+
         return null;
-    }
+}
 
     private void createTableInfo(String TableName) {
         try {
