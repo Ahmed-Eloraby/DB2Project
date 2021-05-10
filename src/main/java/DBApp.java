@@ -6,6 +6,7 @@ import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
+import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.*;
@@ -14,6 +15,41 @@ import java.util.stream.Collectors;
 public class DBApp implements DBAppInterface {
     static int N = 0;
     static int B = 0;
+
+    public static void main(String[] args) throws DBAppException {
+        String strTableName = "Student";
+        DBApp dbApp = new DBApp();
+        dbApp.init();
+        Hashtable htblColNameType = new Hashtable();
+        Hashtable htblColNameMin = new Hashtable();
+        Hashtable htblColNameMax = new Hashtable();
+        htblColNameType.put("id", "java.lang.Integer");
+        htblColNameType.put("name", "java.lang.String");
+        htblColNameType.put("gpa", "java.lang.Double");
+        htblColNameMin.put("id", "0");
+        htblColNameMin.put("name", "a");
+        htblColNameMin.put("gpa", "0.7");
+        htblColNameMax.put("id", "999999");
+        htblColNameMax.put("name", "zzzzzzzzzzz");
+        htblColNameMax.put("gpa", "4.0");
+        dbApp.createTable(strTableName, "id", htblColNameType, htblColNameMin, htblColNameMax);
+        SQLTerm[] arrSQLTerms;
+        arrSQLTerms = new SQLTerm[2];
+        arrSQLTerms[0] = new SQLTerm();
+        arrSQLTerms[1] = new SQLTerm();
+        arrSQLTerms[0]._strTableName = "Student";
+        arrSQLTerms[0]._strColumnName = "name";
+        arrSQLTerms[0]._strOperator = "=";
+        arrSQLTerms[0]._objValue = "John Noor";
+        arrSQLTerms[1]._strTableName = "Student";
+        arrSQLTerms[1]._strColumnName = "gpa";
+        arrSQLTerms[1]._strOperator = "=";
+        arrSQLTerms[1]._objValue = new Integer(1);
+        String[] strarrOperators = new String[1];
+        strarrOperators[0] = "OR";
+        Iterator resultSet = dbApp.selectFromTable(arrSQLTerms, strarrOperators);
+
+    }
 
     public void printAllTuplesOfTable(String name) {
         //Check the  tuples in all pages
@@ -259,7 +295,66 @@ public class DBApp implements DBAppInterface {
             colMax.remove(s);
             colType.remove(s);
         }
+        Vector<Integer> minMaxComparison = new Vector<Integer>();
+        Vector<Comparable> min = new Vector<Comparable>();
+        for (String x : columnNames) {
+            Object value = x;
+            Class type = value.getClass();
+            if (type.getName().equals("java.lang.Integer")) {
+                Vector<Comparable> ranges = new Vector<Comparable>();
+                Integer maximum = Integer.parseInt(colMin.get(x));
+                Integer minimum = Integer.parseInt(colMax.get(x));
+                int step = (maximum - minimum) / 10;
+                int y = minimum;
+                int i = 1;
+                while (i <= 10) {
+                    ranges.addElement(y);
+                    y += step;
+                    i++;
+                }
+                min.addElement(minimum);
+                minMaxComparison.addElement(maximum.compareTo(minimum) + 1);
+            } else if (type.getName().equals("java.lang.Double")) {
+                Double maximum = Double.parseDouble(colMax.get(x));
+                Double minimum = Double.parseDouble(colMin.get(x));
+                Vector<Comparable> ranges = new Vector<Comparable>();
+                double step = (maximum - minimum) / 10;
+                double y = minimum;
+                int i = 1;
+                while (i <= 10) {
+                    ranges.addElement(y);
+                    y += step;
+                    i++;
+                }
+                min.addElement(minimum);
+                minMaxComparison.addElement(maximum.compareTo(minimum) + 1);
+            } else if (type.getName().equals("java.util.Date")) {
+                try {
+                    Date minimum = new SimpleDateFormat("yyyy-MM-dd").parse(colMin.get(x));
+                    Date maximum = new SimpleDateFormat("yyyy-MM-dd").parse(colMax.get(x));
+                    Vector<Comparable> ranges = new Vector<Comparable>();
+                    long step = (maximum.getTime()-minimum.getTime())/10;
+                    Date y = minimum;
+                    int i = 1;
+                    while (i <= 10) {
+                        ranges.addElement(y);
+                        y = new Date(minimum.getTime()+step);
+                        i++;
+                    }
+                    min.addElement(minimum);
+                    minMaxComparison.addElement(maximum.compareTo(minimum) + 1);
+                } catch (ParseException e) {
+                    e.printStackTrace();
+                }
+            } else {
+                String minimum = colMin.get(x);
+                String maximum = colMax.get(x);
+                min.addElement(minimum);
+                minMaxComparison.addElement(maximum.compareTo(minimum) + 1);
 
+            }
+        }
+        new GridIndex(tableName, columnNames, minMaxComparison, min);
     }
 
     @Override
@@ -765,7 +860,7 @@ public class DBApp implements DBAppInterface {
             }
         }
         for (SQLTerm term : sqlTerms) {
-            switch (term._strOperator){
+            switch (term._strOperator) {
                 case "=":
                 case ">":
                 case ">=":
@@ -785,10 +880,10 @@ public class DBApp implements DBAppInterface {
                     String[] line = current.split(",");
                     if (line[0].equals(term._strTableName)) {
                         tableFound = true;
-                        do{
-                            if(line[1].equals(term._strColumnName)){
+                        do {
+                            if (line[1].equals(term._strColumnName)) {
                                 columnFound = true;
-                                if(!term._objValue.getClass().getName().equals(line[2]))
+                                if (!term._objValue.getClass().getName().equals(line[2]))
                                     throw new DBAppException("Wrong objvalue type for col: " + line[1]);
                                 break;
                             }
@@ -805,7 +900,7 @@ public class DBApp implements DBAppInterface {
                 if (!tableFound) {
                     throw new DBAppException("Table Does Not Exist");
                 }
-                if(!columnFound){
+                if (!columnFound) {
                     throw new DBAppException("Column Does Not Exist");
 
                 }
@@ -818,7 +913,7 @@ public class DBApp implements DBAppInterface {
         }
 
         return null;
-}
+    }
 
     private void createTableInfo(String TableName) {
         try {
