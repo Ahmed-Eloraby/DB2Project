@@ -338,7 +338,7 @@ public class DBApp implements DBAppInterface {
                     int i = 1;
                     while (i <= 10) {
                         ranges.addElement(y);
-                        y = new Date(minimum.getTime()+step);
+                        y = new Date(y.getTime()+step);
                         i++;
                     }
                     min.addElement(minimum);
