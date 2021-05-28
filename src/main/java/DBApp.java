@@ -297,6 +297,7 @@ public class DBApp implements DBAppInterface {
         }
         Vector<Integer> minMaxComparison = new Vector<Integer>();
         Vector<Comparable> min = new Vector<Comparable>();
+        Vector<Vector<Comparable>> columnRanges;
         for (String x : columnNames) {
             Object value = x;
             Class type = value.getClass();
@@ -349,6 +350,26 @@ public class DBApp implements DBAppInterface {
             } else {
                 String minimum = colMin.get(x);
                 String maximum = colMax.get(x);
+                Vector<Comparable> ranges = new Vector<Comparable>();
+                double[] steps = new double[maximum.length()];
+                for(int i = 0; i < maximum.length();i++){
+                    if(i < minimum.length()){
+                        steps[i]=(double)((int)maximum.charAt(i) - (int)minimum.charAt(i))/10;
+                    }else{
+                        steps[i]=(double)((int)maximum.charAt(i))/10;
+                    }
+                }
+                for (int i = 0; i<10;i++){
+                    StringBuilder temp = new StringBuilder(minimum);
+                    for(int j = 0; j< temp.length();j++){
+                        temp.setCharAt(j,(char)(int)(temp.charAt(j)+steps[j]*i));
+                    }
+                    for(int j = minimum.length();j<steps.length;j++){
+                        temp.append((char)(int)(steps[j]*i));
+                    }
+                    ranges.addElement(temp.toString());
+                }
+
                 min.addElement(minimum);
                 minMaxComparison.addElement(maximum.compareTo(minimum) + 1);
 
