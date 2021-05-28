@@ -7,22 +7,35 @@ public class Table implements Serializable, Comparable {
     private Vector<String> pageNames,gridIndices;
     private Vector<Vector<String>> gridIndicesColumns;
     private Vector<Comparable> minPageValue;
+    private String primarykey;
     // To be done : count element number in pages
 
 
-    public Table(String name) {
+    public Vector<String> getGridIndices() {
+        return gridIndices;
+    }
+
+    public Vector<Vector<String>> getGridIndicesColumns() {
+        return gridIndicesColumns;
+    }
+
+    public Table(String name, String pk) {
         this.name = name;
         this.pageNames = new Vector<>();
         this.gridIndices = new Vector<>();
         this.gridIndicesColumns = new Vector<>();
         this.minPageValue = new Vector<>();
+        primarykey = pk;
     }
 
     public String getName() {
         return name;
     }
 
-
+    public String getprimaryKey()
+    {
+            return primarykey;
+    }
 
     public Vector<String> getPageNames() {
         return pageNames;
