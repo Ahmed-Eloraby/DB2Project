@@ -4,7 +4,8 @@ import java.util.*;
 
 public class Table implements Serializable, Comparable {
     private String name;
-    private Vector<String> pageNames;
+    private Vector<String> pageNames,gridIndices;
+    private Vector<Vector<String>> gridIndicesColumns;
     private Vector<Comparable> minPageValue;
     // To be done : count element number in pages
 
@@ -12,6 +13,8 @@ public class Table implements Serializable, Comparable {
     public Table(String name) {
         this.name = name;
         this.pageNames = new Vector<>();
+        this.gridIndices = new Vector<>();
+        this.gridIndicesColumns = new Vector<>();
         this.minPageValue = new Vector<>();
     }
 

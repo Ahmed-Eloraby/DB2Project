@@ -204,7 +204,7 @@ public class DBApp implements DBAppInterface {
                     csvWriter.append(",");
                     csvWriter.append(colNameMax.get(s));
                     csvWriter.append("\n");
-                    Table temp = new Table(tableName);
+                    Table temp = new Table(tableName, clusteringKey);
                     createTableInfo(tableName);
                     serializeTableInfo(tableName, temp);
                 }
@@ -297,7 +297,7 @@ public class DBApp implements DBAppInterface {
         }
         Vector<Integer> minMaxComparison = new Vector<Integer>();
         Vector<Comparable> min = new Vector<Comparable>();
-        Vector<Vector<Comparable>> columnRanges;
+        Vector<Vector<Comparable>> columnRanges = new Vector<>();
         for (String x : columnNames) {
             Object value = x;
             Class type = value.getClass();
@@ -334,12 +334,12 @@ public class DBApp implements DBAppInterface {
                     Date minimum = new SimpleDateFormat("yyyy-MM-dd").parse(colMin.get(x));
                     Date maximum = new SimpleDateFormat("yyyy-MM-dd").parse(colMax.get(x));
                     Vector<Comparable> ranges = new Vector<Comparable>();
-                    long step = (maximum.getTime()-minimum.getTime())/10;
+                    long step = (maximum.getTime() - minimum.getTime()) / 10;
                     Date y = minimum;
                     int i = 1;
                     while (i <= 10) {
                         ranges.addElement(y);
-                        y = new Date(y.getTime()+step);
+                        y = new Date(y.getTime() + step);
                         i++;
                     }
                     min.addElement(minimum);
@@ -352,20 +352,20 @@ public class DBApp implements DBAppInterface {
                 String maximum = colMax.get(x);
                 Vector<Comparable> ranges = new Vector<Comparable>();
                 double[] steps = new double[maximum.length()];
-                for(int i = 0; i < maximum.length();i++){
-                    if(i < minimum.length()){
-                        steps[i]=(double)((int)maximum.charAt(i) - (int)minimum.charAt(i))/10;
-                    }else{
-                        steps[i]=(double)((int)maximum.charAt(i))/10;
+                for (int i = 0; i < maximum.length(); i++) {
+                    if (i < minimum.length()) {
+                        steps[i] = (double) ((int) maximum.charAt(i) - (int) minimum.charAt(i)) / 10;
+                    } else {
+                        steps[i] = (double) ((int) maximum.charAt(i)) / 10;
                     }
                 }
-                for (int i = 0; i<10;i++){
+                for (int i = 0; i < 10; i++) {
                     StringBuilder temp = new StringBuilder(minimum);
-                    for(int j = 0; j< temp.length();j++){
-                        temp.setCharAt(j,(char)(int)(temp.charAt(j)+steps[j]*i));
+                    for (int j = 0; j < temp.length(); j++) {
+                        temp.setCharAt(j, (char) (int) (temp.charAt(j) + steps[j] * i));
                     }
-                    for(int j = minimum.length();j<steps.length;j++){
-                        temp.append((char)(int)(steps[j]*i));
+                    for (int j = minimum.length(); j < steps.length; j++) {
+                        temp.append((char) (int) (steps[j] * i));
                     }
                     ranges.addElement(temp.toString());
                 }
@@ -375,7 +375,7 @@ public class DBApp implements DBAppInterface {
 
             }
         }
-        new GridIndex(tableName, columnNames, minMaxComparison, min);
+        new GridIndex(tableName, columnNames, columnRanges);
     }
 
     @Override
@@ -866,6 +866,100 @@ public class DBApp implements DBAppInterface {
         }
     }
 
+    public Vector<Tuple> selectWithoutIndex(SQLTerm term) {
+        Table table = deserializeTableInfo(term._strTableName);
+        Vector<String> p = table.getPageNames();
+        Vector<Tuple> output = new Vector<>();
+        switch (term._strOperator) {
+            case "=":
+                if (table.getprimaryKey().equals(term._strColumnName)) {
+                    int pageindex = getPageIndex((Comparable) term._objValue, table.getMinPageValue());
+                    Vector<Tuple> page = deserializePage(table.getPageNames().elementAt(pageindex));
+                    int keyindex = getKeyIndex((Comparable) term._objValue, page);
+                    if (keyindex != -1) {
+                        output.addElement(page.elementAt(keyindex));
+                    }
+                } else {
+                    for (String pageName : p) {
+                        Vector<Tuple> page = deserializePage(pageName);
+                        for (Tuple tuple : page) {
+                            if (tuple.getEntries().get(term._strColumnName).compareTo((Comparable) term._objValue) == 0) {
+                                output.addElement(tuple);
+                            }
+                        }
+                    }
+                }
+                break;
+            case "!=":
+                for (String pageName : p) {
+                    Vector<Tuple> page = deserializePage(pageName);
+                    for (Tuple tuple : page) {
+                        if (tuple.getEntries().get(term._strColumnName).compareTo((Comparable) term._objValue) != 0) {
+                            output.addElement(tuple);
+                        }
+                    }
+                }
+                break;
+            case ">":
+                if (table.getprimaryKey().equals(term._strColumnName)) {
+                    int pageindex = getPageIndex((Comparable) term._objValue, table.getMinPageValue());
+                    p = new Vector<String>(p.subList(pageindex,p.size()));
+                }
+                for (String pageName : p) {
+                    Vector<Tuple> page = deserializePage(pageName);
+                    for (Tuple tuple : page) {
+                        if (tuple.getEntries().get(term._strColumnName).compareTo((Comparable) term._objValue) > 0) {
+                            output.addElement(tuple);
+                        }
+                    }
+                }
+                break;
+            case ">=":
+                if (table.getprimaryKey().equals(term._strColumnName)) {
+                    int pageindex = getPageIndex((Comparable) term._objValue, table.getMinPageValue());
+                    p = new Vector<String>(p.subList(pageindex,p.size()));
+                }
+                for (String pageName : p) {
+                    Vector<Tuple> page = deserializePage(pageName);
+                    for (Tuple tuple : page) {
+                        if (tuple.getEntries().get(term._strColumnName).compareTo((Comparable) term._objValue) >= 0) {
+                            output.addElement(tuple);
+                        }
+                    }
+                }
+                break;
+            case "<":
+                if (table.getprimaryKey().equals(term._strColumnName)) {
+                    int pageindex = getPageIndex((Comparable) term._objValue, table.getMinPageValue());
+                    p = new Vector<String>(p.subList(0,pageindex+1));
+                }
+                for (String pageName : p) {
+                    Vector<Tuple> page = deserializePage(pageName);
+                    for (Tuple tuple : page) {
+                        if (tuple.getEntries().get(term._strColumnName).compareTo((Comparable) term._objValue) < 0) {
+                            output.addElement(tuple);
+                        }
+                    }
+                }
+                break;
+            case "<=":
+                if (table.getprimaryKey().equals(term._strColumnName)) {
+                    int pageindex = getPageIndex((Comparable) term._objValue, table.getMinPageValue());
+                    p = new Vector<String>(p.subList(0,pageindex+1));
+                }
+                for (String pageName : p) {
+                    Vector<Tuple> page = deserializePage(pageName);
+                    for (Tuple tuple : page) {
+                        if (tuple.getEntries().get(term._strColumnName).compareTo((Comparable) term._objValue) <= 0) {
+                            output.addElement(tuple);
+                        }
+                    }
+                }
+                break;
+        }
+        return output;
+    }
+
     @Override
     public Iterator selectFromTable(SQLTerm[] sqlTerms, String[] arrayOperators) throws DBAppException {
         if (arrayOperators.length != sqlTerms.length - 1)
@@ -1020,7 +1114,6 @@ public class DBApp implements DBAppInterface {
         }
         return -1;
     }
-
 
     private int getPageIndex(Comparable key, Vector<Comparable> minimumValueInPage) {
         int lo = 0;
