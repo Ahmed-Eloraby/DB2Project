@@ -11,15 +11,13 @@ public class BucketEntry implements Comparable {
         return pageName;
     }
 
-    public int getRecordIndex() {
-        return recordIndex;
+    public Comparable getClusteringKey() {
+        return clusteringKey;
     }
 
-    public void setPageName(String pageName) {
-        this.pageName = pageName;
-    }
 
-    public void setRecordIndex(int recordIndex) {
-        this.recordIndex = recordIndex;
+    @Override
+    public int compareTo(Object o) {
+        return clusteringKey.compareTo((BucketEntry)o);
     }
 }

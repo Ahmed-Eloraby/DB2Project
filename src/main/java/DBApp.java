@@ -324,8 +324,7 @@ public class DBApp implements DBAppInterface {
                     y += step;
                     i++;
                 }
-                min.addElement(minimum);
-                minMaxComparison.addElement(maximum.compareTo(minimum) + 1);
+                columnRanges.addElement(ranges);
             } else if (type.getName().equals("java.util.Date")) {
                 try {
                     Date minimum = new SimpleDateFormat("yyyy-MM-dd").parse(colMin.get(x));
@@ -1103,6 +1102,32 @@ public class DBApp implements DBAppInterface {
         return v;
     }
 
+    private void serializeGridIndex(String name, GridIndex g) {
+        try {
+            FileOutputStream fileout = new FileOutputStream("src/main/resources/data/" + name + ".class");
+            ObjectOutputStream out = new ObjectOutputStream(fileout);
+            out.writeObject(g);
+            out.close();
+            fileout.close();
+        } catch (IOException i) {
+            i.getMessage();
+        }
+    }
+
+    private GridIndex deserializeGridIndex(String name) {
+        GridIndex g = null;
+        try {
+            FileInputStream filein = new FileInputStream("src/main/resources/data/" + name + ".class");
+            ObjectInputStream in = new ObjectInputStream(filein);
+            g = (GridIndex) in.readObject();
+            in.close();
+            filein.close();
+        } catch (IOException | ClassNotFoundException i) {
+            i.getMessage();
+        }
+        return g;
+    }
+
     private int getKeyIndex(Comparable key, Vector<Tuple> keysInPage) {
         int lo = 0;
         int hi = keysInPage.size() - 1;
@@ -1266,6 +1291,18 @@ public class DBApp implements DBAppInterface {
             }
         }
         return (Comparable) colNameValue.get(clusteringKeyColumn);
+    }
+
+    private void populateGridIndex (Table t, GridIndex i)
+    {
+        for(String page :t.getPageNames())
+        {
+            Vector<Tuple> tuples =  deserializePage(page);
+            for(Tuple tup:tuples)
+            {
+                i.insertInGrid(tup,page);
+            }
+        }
     }
 
     private Vector<Tuple> andVectors(Vector<Tuple> v1, Vector<Tuple> v2) {

@@ -1,9 +1,11 @@
 import java.util.Vector;
 
 public class Bucket {
+    String Bucketname;
     Vector<BucketEntry> bucketBody;
     String overFlow;
-    public Bucket(){
+    public Bucket(String name){
+        Bucketname = name;
         bucketBody = new Vector<BucketEntry>();
         overFlow = "";
     }
