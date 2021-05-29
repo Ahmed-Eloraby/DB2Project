@@ -295,14 +295,12 @@ public class DBApp implements DBAppInterface {
             colMax.remove(s);
             colType.remove(s);
         }
-        Vector<Integer> minMaxComparison = new Vector<Integer>();
-        Vector<Comparable> min = new Vector<Comparable>();
         Vector<Vector<Comparable>> columnRanges = new Vector<>();
         for (String x : columnNames) {
             Object value = x;
             Class type = value.getClass();
             if (type.getName().equals("java.lang.Integer")) {
-                Vector<Comparable> ranges = new Vector<Comparable>();
+                Vector<Comparable> ranges = new Vector<>();
                 Integer maximum = Integer.parseInt(colMin.get(x));
                 Integer minimum = Integer.parseInt(colMax.get(x));
                 int step = (maximum - minimum) / 10;
@@ -313,8 +311,7 @@ public class DBApp implements DBAppInterface {
                     y += step;
                     i++;
                 }
-                min.addElement(minimum);
-                minMaxComparison.addElement(maximum.compareTo(minimum) + 1);
+                columnRanges.addElement(ranges);
             } else if (type.getName().equals("java.lang.Double")) {
                 Double maximum = Double.parseDouble(colMax.get(x));
                 Double minimum = Double.parseDouble(colMin.get(x));
@@ -342,8 +339,7 @@ public class DBApp implements DBAppInterface {
                         y = new Date(y.getTime() + step);
                         i++;
                     }
-                    min.addElement(minimum);
-                    minMaxComparison.addElement(maximum.compareTo(minimum) + 1);
+                    columnRanges.addElement(ranges);
                 } catch (ParseException e) {
                     e.printStackTrace();
                 }
@@ -369,13 +365,22 @@ public class DBApp implements DBAppInterface {
                     }
                     ranges.addElement(temp.toString());
                 }
-
-                min.addElement(minimum);
-                minMaxComparison.addElement(maximum.compareTo(minimum) + 1);
-
+                columnRanges.addElement(ranges);
             }
         }
-        new GridIndex(tableName, columnNames, columnRanges);
+        GridIndex gridIndex = new GridIndex(tableName, columnNames, columnRanges);
+        Table table = deserializeTableInfo(tableName);
+        table.getGridIndicesColumns().addElement(gridIndex.getColumnNames());
+
+        String s = tableName + table.getGridIndices().size();
+
+        serializeGridIndex(s,gridIndex);
+        table.getGridIndices().addElement(s);
+        table.getGridIndicesColumns().addElement(gridIndex.getColumnNames());
+
+        populateGridIndex(table,gridIndex);
+
+        serializeTableInfo(tableName,table);
     }
 
     @Override
@@ -903,7 +908,7 @@ public class DBApp implements DBAppInterface {
             case ">":
                 if (table.getprimaryKey().equals(term._strColumnName)) {
                     int pageindex = getPageIndex((Comparable) term._objValue, table.getMinPageValue());
-                    p = new Vector<String>(p.subList(pageindex,p.size()));
+                    p = new Vector<String>(p.subList(pageindex, p.size()));
                 }
                 for (String pageName : p) {
                     Vector<Tuple> page = deserializePage(pageName);
@@ -917,7 +922,7 @@ public class DBApp implements DBAppInterface {
             case ">=":
                 if (table.getprimaryKey().equals(term._strColumnName)) {
                     int pageindex = getPageIndex((Comparable) term._objValue, table.getMinPageValue());
-                    p = new Vector<String>(p.subList(pageindex,p.size()));
+                    p = new Vector<String>(p.subList(pageindex, p.size()));
                 }
                 for (String pageName : p) {
                     Vector<Tuple> page = deserializePage(pageName);
@@ -931,7 +936,7 @@ public class DBApp implements DBAppInterface {
             case "<":
                 if (table.getprimaryKey().equals(term._strColumnName)) {
                     int pageindex = getPageIndex((Comparable) term._objValue, table.getMinPageValue());
-                    p = new Vector<String>(p.subList(0,pageindex+1));
+                    p = new Vector<String>(p.subList(0, pageindex + 1));
                 }
                 for (String pageName : p) {
                     Vector<Tuple> page = deserializePage(pageName);
@@ -945,7 +950,7 @@ public class DBApp implements DBAppInterface {
             case "<=":
                 if (table.getprimaryKey().equals(term._strColumnName)) {
                     int pageindex = getPageIndex((Comparable) term._objValue, table.getMinPageValue());
-                    p = new Vector<String>(p.subList(0,pageindex+1));
+                    p = new Vector<String>(p.subList(0, pageindex + 1));
                 }
                 for (String pageName : p) {
                     Vector<Tuple> page = deserializePage(pageName);
@@ -1263,4 +1268,89 @@ public class DBApp implements DBAppInterface {
         return (Comparable) colNameValue.get(clusteringKeyColumn);
     }
 
+    private Vector<Tuple> andVectors(Vector<Tuple> v1, Vector<Tuple> v2) {
+        Vector<Tuple> output = new Vector<>();
+        int i = 0,j = 0;
+        while(i<v1.size() || j< v2.size()){
+            //same Tuple
+            if(v1.elementAt(i).compareTo(v2.elementAt(j))==0){
+                output.addElement(v1.elementAt(i));
+                i++;
+                j++;
+            }
+            else{
+                if(v1.elementAt(i).compareTo(v2.elementAt(j))>0){
+                    j++;
+                }else{
+                    i++;
+                }
+            }
+        }
+        return output;
+    }
+
+    private Vector<Tuple> orVectors(Vector<Tuple> v1, Vector<Tuple> v2) {
+        Vector<Tuple> output = new Vector<>();
+        int i = 0,j = 0;
+        while(i<v1.size() || j< v2.size()){
+            //same Tuple
+            if(v1.elementAt(i).compareTo(v2.elementAt(j))==0){
+                output.addElement(v1.elementAt(i));
+                i++;
+                j++;
+            }
+            else{
+                if(v1.elementAt(i).compareTo(v2.elementAt(j))>0){
+                    output.addElement(v2.elementAt(j));
+                    j++;
+                }else{
+                    output.addElement(v1.elementAt(i));
+                    i++;
+                }
+            }
+        }
+        if(i<v1.size()){
+            while(i< v1.size()){
+                output.addElement(v1.elementAt(i));
+            }
+        }
+        else if(j< v2.size()){
+            while(j< v2.size()){
+                output.addElement(v2.elementAt(j));
+            }
+        }
+        return output;
+    }
+
+    private Vector<Tuple> xorVectors(Vector<Tuple> v1, Vector<Tuple> v2) {
+        Vector<Tuple> output = v1;
+        int i = 0,j = 0;
+        while(i<v1.size() || j< v2.size()){
+            //same Tuple
+            if(v1.elementAt(i).compareTo(v2.elementAt(j))==0){
+                i++;
+                j++;
+            }
+            else{
+                if(v1.elementAt(i).compareTo(v2.elementAt(j))>0){
+                    output.addElement(v2.elementAt(j));
+                    j++;
+                }else{
+                    output.addElement(v1.elementAt(i));
+                    i++;
+                }
+            }
+        }
+        if(i<v1.size()){
+            while(i< v1.size()){
+                output.addElement(v1.elementAt(i));
+            }
+        }
+        else if(j< v2.size()){
+            while(j< v2.size()){
+                output.addElement(v2.elementAt(j));
+            }
+        }
+        return output;
+    }
 }
