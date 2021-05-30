@@ -8,7 +8,7 @@ public class GridIndex {
     public String getTableName() {
         return tableName;
     }
-
+    private String pk;
     private String tableName;
 
     private Vector<Vector<String>> gridList;
@@ -30,7 +30,7 @@ public class GridIndex {
     }
 
 
-    public GridIndex(String tableName, String[] columnNames, Vector<Vector<Comparable>> columnRanges) {
+    public GridIndex(String tableName, String[] columnNames, Vector<Vector<Comparable>> columnRanges,String pk) {
         this.tableName = tableName;
         this.gridList = new Vector<>();
         for (int i = 0; i < columnNames.length; i++) {
@@ -39,6 +39,7 @@ public class GridIndex {
         this.columnNames = new Vector<>();
         Collections.addAll(this.columnNames, columnNames);
         this.columnRanges = columnRanges;
+        this.pk =pk;
     }
 
     public void insertInGrid(Tuple t, String pageName) {
@@ -52,7 +53,7 @@ public class GridIndex {
         }
     }
 
-    public void updatePageName(Tuple tuple){
+    public void updatePageName(Tuple tuple,String pageName){
         for (int i = 0; i < columnNames.size(); i++) {
             Comparable c = tuple.getEntries().get(columnNames.elementAt(i));
             if (c != null) {
@@ -62,14 +63,28 @@ public class GridIndex {
                 while(bucket.bucketBody.lastElement().getClusteringKey().compareTo(tuple.getClusteringKey())<0){
                     bucket = deserializeBucket(bucket.overFlow);
                 }
-
-
-
+                bucket.bucketBody.elementAt(getBucketEntryIndex(bucket,tuple.getClusteringKey())).setPageName(pageName);
+                serializeBucket(bucket.getBucketname(),bucket);
             }
         }
 
     }
-
+    private int getBucketEntryIndex(Bucket bucket, Comparable clusteringKey){
+        int lo = 0;
+        int hi = bucket.bucketBody.size() - 1;
+        int i;
+        while (lo <= hi) {
+            i = (lo + hi) / 2;
+            if (clusteringKey.compareTo(bucket.getBucketBody().elementAt(i).getClusteringKey()) == 0) {
+                return i;
+            } else if (clusteringKey.compareTo(bucket.getBucketBody().elementAt(i).getClusteringKey()) < 0) {
+                hi = i - 1;
+            } else {
+                lo = i + 1;
+            }
+        }
+        return -1;
+    }
     private void insertInRange(int i, int indexofRange, Tuple t, String pageName) {
         BucketEntry newEntry = new BucketEntry(t.getClusteringKey(),pageName);
 
@@ -198,5 +213,28 @@ public class GridIndex {
         return overflow;
     }
 
+    public String getPageNameFromIndex(Comparable clusteringKey) {
+        int pkindex = columnNames.indexOf(pk);
+        int indexofRange= indexOfRange(getColumnRanges().elementAt(pkindex),clusteringKey);
+        Bucket bucket = deserializeBucket(gridList.elementAt(pkindex).elementAt(indexofRange));
+        while(bucket.bucketBody.lastElement().getClusteringKey().compareTo(clusteringKey)<0){
+            bucket = deserializeBucket(bucket.overFlow);
+        }
+        int i = indexToInsertAt(clusteringKey,bucket.bucketBody);
+        return bucket.getBucketBody().elementAt(i).getPageName();
+    }
+    private int indexToInsertAt(Comparable key, Vector<BucketEntry> keysInPage) {
+        int lo = 0;
+        int hi = keysInPage.size() - 1;
+        while (lo <= hi) {
+            int i = (lo + hi) / 2;
+            if (key.compareTo(keysInPage.elementAt(i).getClusteringKey()) < 0) {
+                hi = i - 1;
+            } else {
+                lo = i + 1;
+            }
+        }
+        return lo;
+    }
 }
 

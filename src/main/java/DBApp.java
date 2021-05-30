@@ -372,14 +372,14 @@ public class DBApp implements DBAppInterface {
         table.getGridIndicesColumns().addElement(gridIndex.getColumnNames());
 
         String s = tableName + table.getGridIndices().size();
+        populateGridIndex(table, gridIndex);
 
-        serializeGridIndex(s,gridIndex);
+        serializeGridIndex(s, gridIndex);
         table.getGridIndices().addElement(s);
         table.getGridIndicesColumns().addElement(gridIndex.getColumnNames());
 
-        populateGridIndex(table,gridIndex);
 
-        serializeTableInfo(tableName,table);
+        serializeTableInfo(tableName, table);
     }
 
     @Override
@@ -506,7 +506,7 @@ public class DBApp implements DBAppInterface {
         Tuple newEntry = new Tuple(allColValues.get(primaryKey), allColValues);
         //FETCH Table info
         Table table = deserializeTableInfo(tableName);
-        //if no pages found for the Table
+          //if no pages found for the Table
         if (table.getPageNames().size() == 0) {
             //Create the First Page
             try {
@@ -525,11 +525,28 @@ public class DBApp implements DBAppInterface {
                 throw new DBAppException(e.getMessage());
             }
         } else {
-            //if Page(s) was found
-            //get index of the page with the possible range
-            int pageIndex = getPageIndex(newEntry.getClusteringKey(), table.getMinPageValue());
-            //page name
-            String pageName = (String) table.getPageNames().elementAt(pageIndex);
+            String pageName = "";
+            int pageIndex = -1;
+            //Check if a primary index exists
+            int h = 0;
+            for (Vector<String> cn : table.getGridIndicesColumns()) {
+                if (cn.contains(primaryKey)) {
+                    break;
+                }
+                h++;
+            }
+            if (h < table.getGridIndicesColumns().size()) {
+                GridIndex gridIndex = deserializeGridIndex(table.getGridIndices().elementAt(h));
+                pageName = gridIndex.getPageNameFromIndex(newEntry.getClusteringKey());
+
+                pageIndex=table.getPageNames().indexOf(pageName);
+            } else {
+                //if Page(s) was found
+                //get index of the page with the possible range
+                pageIndex = getPageIndex(newEntry.getClusteringKey(), table.getMinPageValue());
+                //page name
+                pageName = (String) table.getPageNames().elementAt(pageIndex);
+            }
             //Fetch the vector of the page (deserialize)
             Vector<Tuple> page = deserializePage(pageName);
             int keyIndex = getKeyIndex(newEntry.getClusteringKey(), page);
@@ -553,9 +570,14 @@ public class DBApp implements DBAppInterface {
                     String newHalfPageName = tableName + now.getDayOfYear() + now.getHour() + now.getMinute() + now.getSecond() + now.getNano();
                     table.getPageNames().insertElementAt(newHalfPageName, pageIndex + 1);
                     table.getMinPageValue().insertElementAt(0, pageIndex + 1);
-
                     table.getMinPageValue().setElementAt(firstHalf.elementAt(0).getClusteringKey(), pageIndex);
                     table.getMinPageValue().setElementAt(secondHalf.elementAt(0).getClusteringKey(), pageIndex + 1);
+                    for(String g:table.getGridIndices()){
+                        GridIndex gi = deserializeGridIndex(g);
+                        for(Tuple t: secondHalf){
+                            gi.updatePageName(t,newHalfPageName);
+                        }
+                    }
                     serializePage(pageName, firstHalf);
                     serializePage(newHalfPageName, secondHalf);
                 } catch (InterruptedException e) {
@@ -565,6 +587,7 @@ public class DBApp implements DBAppInterface {
             serializeTableInfo(tableName, table);
         }
     }
+
 
     @Override
     public void updateTable(String tableName, String clusteringKeyValue, Hashtable<String, Object> colNameValue) throws DBAppException {
@@ -1293,32 +1316,28 @@ public class DBApp implements DBAppInterface {
         return (Comparable) colNameValue.get(clusteringKeyColumn);
     }
 
-    private void populateGridIndex (Table t, GridIndex i)
-    {
-        for(String page :t.getPageNames())
-        {
-            Vector<Tuple> tuples =  deserializePage(page);
-            for(Tuple tup:tuples)
-            {
-                i.insertInGrid(tup,page);
+    private void populateGridIndex(Table t, GridIndex i) {
+        for (String page : t.getPageNames()) {
+            Vector<Tuple> tuples = deserializePage(page);
+            for (Tuple tup : tuples) {
+                i.insertInGrid(tup, page);
             }
         }
     }
 
     private Vector<Tuple> andVectors(Vector<Tuple> v1, Vector<Tuple> v2) {
         Vector<Tuple> output = new Vector<>();
-        int i = 0,j = 0;
-        while(i<v1.size() || j< v2.size()){
+        int i = 0, j = 0;
+        while (i < v1.size() || j < v2.size()) {
             //same Tuple
-            if(v1.elementAt(i).compareTo(v2.elementAt(j))==0){
+            if (v1.elementAt(i).compareTo(v2.elementAt(j)) == 0) {
                 output.addElement(v1.elementAt(i));
                 i++;
                 j++;
-            }
-            else{
-                if(v1.elementAt(i).compareTo(v2.elementAt(j))>0){
+            } else {
+                if (v1.elementAt(i).compareTo(v2.elementAt(j)) > 0) {
                     j++;
-                }else{
+                } else {
                     i++;
                 }
             }
@@ -1328,31 +1347,29 @@ public class DBApp implements DBAppInterface {
 
     private Vector<Tuple> orVectors(Vector<Tuple> v1, Vector<Tuple> v2) {
         Vector<Tuple> output = new Vector<>();
-        int i = 0,j = 0;
-        while(i<v1.size() || j< v2.size()){
+        int i = 0, j = 0;
+        while (i < v1.size() || j < v2.size()) {
             //same Tuple
-            if(v1.elementAt(i).compareTo(v2.elementAt(j))==0){
+            if (v1.elementAt(i).compareTo(v2.elementAt(j)) == 0) {
                 output.addElement(v1.elementAt(i));
                 i++;
                 j++;
-            }
-            else{
-                if(v1.elementAt(i).compareTo(v2.elementAt(j))>0){
+            } else {
+                if (v1.elementAt(i).compareTo(v2.elementAt(j)) > 0) {
                     output.addElement(v2.elementAt(j));
                     j++;
-                }else{
+                } else {
                     output.addElement(v1.elementAt(i));
                     i++;
                 }
             }
         }
-        if(i<v1.size()){
-            while(i< v1.size()){
+        if (i < v1.size()) {
+            while (i < v1.size()) {
                 output.addElement(v1.elementAt(i));
             }
-        }
-        else if(j< v2.size()){
-            while(j< v2.size()){
+        } else if (j < v2.size()) {
+            while (j < v2.size()) {
                 output.addElement(v2.elementAt(j));
             }
         }
@@ -1361,30 +1378,28 @@ public class DBApp implements DBAppInterface {
 
     private Vector<Tuple> xorVectors(Vector<Tuple> v1, Vector<Tuple> v2) {
         Vector<Tuple> output = v1;
-        int i = 0,j = 0;
-        while(i<v1.size() || j< v2.size()){
+        int i = 0, j = 0;
+        while (i < v1.size() || j < v2.size()) {
             //same Tuple
-            if(v1.elementAt(i).compareTo(v2.elementAt(j))==0){
+            if (v1.elementAt(i).compareTo(v2.elementAt(j)) == 0) {
                 i++;
                 j++;
-            }
-            else{
-                if(v1.elementAt(i).compareTo(v2.elementAt(j))>0){
+            } else {
+                if (v1.elementAt(i).compareTo(v2.elementAt(j)) > 0) {
                     output.addElement(v2.elementAt(j));
                     j++;
-                }else{
+                } else {
                     output.addElement(v1.elementAt(i));
                     i++;
                 }
             }
         }
-        if(i<v1.size()){
-            while(i< v1.size()){
+        if (i < v1.size()) {
+            while (i < v1.size()) {
                 output.addElement(v1.elementAt(i));
             }
-        }
-        else if(j< v2.size()){
-            while(j< v2.size()){
+        } else if (j < v2.size()) {
+            while (j < v2.size()) {
                 output.addElement(v2.elementAt(j));
             }
         }

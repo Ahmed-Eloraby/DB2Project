@@ -3,6 +3,11 @@ import java.util.Vector;
 public class Bucket {
     String Bucketname;
     Vector<BucketEntry> bucketBody;
+
+    public String getBucketname() {
+        return Bucketname;
+    }
+
     String overFlow;
     public Bucket(String name){
         Bucketname = name;
