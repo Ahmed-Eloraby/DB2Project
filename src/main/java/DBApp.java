@@ -535,6 +535,11 @@ public class DBApp implements DBAppInterface {
                 table.getPageNames().addElement(newPageName);
                 table.getMinPageValue().addElement(newEntry.getClusteringKey());
                 serializePage(newPageName, newPageBody);
+                for(String g:table.getGridIndices()){
+                    GridIndex gi = deserializeGridIndex(g);
+                        gi.insertInGrid(newEntry,newPageName);
+
+                }
                 serializeTableInfo(tableName, table);
 
             } catch (InterruptedException e) {
@@ -554,7 +559,6 @@ public class DBApp implements DBAppInterface {
             if (h < table.getGridIndicesColumns().size()) {
                 GridIndex gridIndex = deserializeGridIndex(table.getGridIndices().elementAt(h));
                 pageName = gridIndex.getPageNameFromIndex(newEntry.getClusteringKey());
-
                 pageIndex=table.getPageNames().indexOf(pageName);
             } else {
                 //if Page(s) was found
@@ -574,11 +578,21 @@ public class DBApp implements DBAppInterface {
                 // if there is space in the main page:
                 page.insertElementAt(newEntry, indexToInsertAt(newEntry.getClusteringKey(), page));
                 serializePage(pageName, page);
+                //insert in index
+                for(String g:table.getGridIndices()){
+                    GridIndex gi = deserializeGridIndex(g);
+                    gi.insertInGrid(newEntry,pageName);
+                }
                 table.getMinPageValue().setElementAt(page.firstElement().getClusteringKey(), pageIndex);
             } else {
                 //Page is full
                 try {
                     page.insertElementAt(newEntry, indexToInsertAt(newEntry.getClusteringKey(), page));
+                    //insert in index
+                    for(String g:table.getGridIndices()){
+                        GridIndex gi = deserializeGridIndex(g);
+                        gi.insertInGrid(newEntry,pageName);
+                    }
                     Vector<Tuple> firstHalf = new Vector<>(page.subList(0, (page.size()) / 2));
                     Vector<Tuple> secondHalf = new Vector<>(page.subList((page.size()) / 2, page.size()));
                     Thread.sleep(1);

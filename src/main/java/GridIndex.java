@@ -8,6 +8,7 @@ public class GridIndex {
     public String getTableName() {
         return tableName;
     }
+
     private String pk;
     private String tableName;
 
@@ -30,7 +31,7 @@ public class GridIndex {
     }
 
 
-    public GridIndex(String tableName, String[] columnNames, Vector<Vector<Comparable>> columnRanges,String pk) {
+    public GridIndex(String tableName, String[] columnNames, Vector<Vector<Comparable>> columnRanges, String pk) {
         this.tableName = tableName;
         this.gridList = new Vector<>();
         for (int i = 0; i < columnNames.length; i++) {
@@ -39,7 +40,66 @@ public class GridIndex {
         this.columnNames = new Vector<>();
         Collections.addAll(this.columnNames, columnNames);
         this.columnRanges = columnRanges;
-        this.pk =pk;
+        this.pk = pk;
+    }
+
+    public void deleteFromGrid(Tuple t) {
+        for (int i = 0; i < columnNames.size(); i++) {
+            Comparable c = t.getEntries().get(columnNames.elementAt(i));
+            if (c != null) {
+                //find the range
+                int indexofRange = indexOfRange(columnRanges.elementAt(i), c);
+                deleteFromRange(i, indexofRange, t);
+            }
+        }
+    }
+
+    private void deleteFromRange(int i, int indexofRange, Tuple tuple) {
+        Bucket bucket = deserializeBucket(gridList.elementAt(i).elementAt(indexofRange));
+        Bucket prevBucket = null;
+        while (bucket.bucketBody.size() == DBApp.B && bucket.bucketBody.lastElement().getClusteringKey().compareTo(tuple.getClusteringKey()) < 0) {
+            prevBucket = bucket;
+            bucket = deserializeBucket(bucket.overFlow);
+        }
+        //index of bucket entry to delete
+        int j = getBucketEntryIndex(bucket, tuple.getClusteringKey());
+        bucket.bucketBody.removeElementAt(j);
+        if (bucket.overFlow.equals("")) {
+            if (bucket.bucketBody.isEmpty()) {
+                if(prevBucket == null){
+                    gridList.elementAt(i).setElementAt(null,indexofRange);
+                    deleteBucket(bucket.getBucketname());
+                    return;
+                }else{
+                    prevBucket.setOverFlow("");
+                    serializeBucket(prevBucket.getBucketname(), prevBucket);
+                }
+                deleteBucket(bucket.getBucketname());
+            }
+        } else {
+            bucket.bucketBody.addElement(shiftOverFlow(bucket, bucket.overFlow));
+        }
+        serializeBucket(bucket.getBucketname(), bucket);
+    }
+
+    private BucketEntry shiftOverFlow(Bucket prevBucket, String of) {
+        Bucket bucket = deserializeBucket(of);
+        if (!bucket.overFlow.equals(""))
+            bucket.bucketBody.addElement(shiftOverFlow(bucket, prevBucket.overFlow));
+        BucketEntry firstElement = bucket.bucketBody.remove(0);
+        if (bucket.bucketBody.isEmpty()) {
+            prevBucket.setOverFlow("");
+            deleteBucket(bucket.getBucketname());
+        }
+        else {
+            serializeBucket(bucket.getBucketname(), bucket);
+        }
+        return firstElement;
+
+    }
+    private void deleteBucket(String bName){
+        File f = new File("src/main/resources/data/" + bName + ".class");
+        f.delete();
     }
 
     public void insertInGrid(Tuple t, String pageName) {
@@ -53,23 +113,24 @@ public class GridIndex {
         }
     }
 
-    public void updatePageName(Tuple tuple,String pageName){
+    public void updatePageName(Tuple tuple, String pageName) {
         for (int i = 0; i < columnNames.size(); i++) {
             Comparable c = tuple.getEntries().get(columnNames.elementAt(i));
             if (c != null) {
                 //find the range
                 int indexofRange = indexOfRange(columnRanges.elementAt(i), c);
                 Bucket bucket = deserializeBucket(gridList.elementAt(i).elementAt(indexofRange));
-                while(bucket.bucketBody.lastElement().getClusteringKey().compareTo(tuple.getClusteringKey())<0){
+                while (bucket.bucketBody.size() == DBApp.B && bucket.bucketBody.lastElement().getClusteringKey().compareTo(tuple.getClusteringKey()) < 0) {
                     bucket = deserializeBucket(bucket.overFlow);
                 }
-                bucket.bucketBody.elementAt(getBucketEntryIndex(bucket,tuple.getClusteringKey())).setPageName(pageName);
-                serializeBucket(bucket.getBucketname(),bucket);
+                bucket.bucketBody.elementAt(getBucketEntryIndex(bucket, tuple.getClusteringKey())).setPageName(pageName);
+                serializeBucket(bucket.getBucketname(), bucket);
             }
         }
 
     }
-    private int getBucketEntryIndex(Bucket bucket, Comparable clusteringKey){
+
+    private int getBucketEntryIndex(Bucket bucket, Comparable clusteringKey) {
         int lo = 0;
         int hi = bucket.bucketBody.size() - 1;
         int i;
@@ -85,37 +146,34 @@ public class GridIndex {
         }
         return -1;
     }
-    private void insertInRange(int i, int indexofRange, Tuple t, String pageName) {
-        BucketEntry newEntry = new BucketEntry(t.getClusteringKey(),pageName);
 
+    private void insertInRange(int i, int indexofRange, Tuple t, String pageName) {
+        BucketEntry newEntry = new BucketEntry(t.getClusteringKey(), pageName);
         //check if bucket exist:
         if (gridList.elementAt(i).elementAt(indexofRange) == null) {
-            String temp =getnewBucketName(tableName);
+            String temp = getnewBucketName(tableName);
             Bucket b = new Bucket(temp);
             b.bucketBody.addElement(newEntry);
-            gridList.elementAt(i).setElementAt(temp,indexofRange);
-            serializeBucket(gridList.elementAt(i).elementAt(indexofRange),b);
+            gridList.elementAt(i).setElementAt(temp, indexofRange);
+            serializeBucket(gridList.elementAt(i).elementAt(indexofRange), b);
         } else {
             Bucket currentBucket = deserializeBucket(gridList.elementAt(i).elementAt(indexofRange));
-            if(currentBucket.bucketBody.size() == DBApp.B)
-            {
+            if (currentBucket.bucketBody.size() == DBApp.B) {
                 //Bucket is Full
                 BucketEntry tobeinserted = currentBucket.bucketBody.lastElement();
-                if(tobeinserted.compareTo(newEntry)>0){
-                    currentBucket.bucketBody.removeElementAt(DBApp.B-1);
+                if (tobeinserted.compareTo(newEntry) > 0) {
+                    currentBucket.bucketBody.removeElementAt(DBApp.B - 1);
                     currentBucket.insertBucketEntry(newEntry);
-                }else{
+                } else {
                     tobeinserted = newEntry;
                 }
-                String ofname = insertInOverFlow(currentBucket.getOverFlow(),tobeinserted);
+                String ofname = insertInOverFlow(currentBucket.getOverFlow(), tobeinserted);
                 currentBucket.setOverFlow(ofname);
-            }
-            else
-            {
+            } else {
                 //Bucket is not Full
                 currentBucket.insertBucketEntry(newEntry);
             }
-            serializeBucket(gridList.elementAt(i).elementAt(indexofRange),currentBucket);
+            serializeBucket(gridList.elementAt(i).elementAt(indexofRange), currentBucket);
 
         }
 
@@ -169,45 +227,40 @@ public class GridIndex {
         }
         return b;
     }
+
     private String getnewBucketName(String tableName) {
-            LocalDateTime now = LocalDateTime.now();
-            try {
-                Thread.sleep(1);
-            } catch (InterruptedException e) {
-                e.printStackTrace();
-            }
-            return tableName + "Bucket" + now.getDayOfYear() + now.getHour() + now.getMinute() + now.getSecond() + now.getNano();
+        LocalDateTime now = LocalDateTime.now();
+        try {
+            Thread.sleep(1);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+        return tableName + "Bucket" + now.getDayOfYear() + now.getHour() + now.getMinute() + now.getSecond() + now.getNano();
     }
-    private String insertInOverFlow(String overflow,BucketEntry newEntry)
-    {
-        if(overflow.equals(""))
-        {
+
+    private String insertInOverFlow(String overflow, BucketEntry newEntry) {
+        if (overflow.equals("")) {
             String tempname = getnewBucketName(tableName);
             Bucket b = new Bucket(tempname);
             b.insertBucketEntry(newEntry);
-            serializeBucket(tempname,b);
+            serializeBucket(tempname, b);
             return tempname;
-        }
-        else
-        {
+        } else {
             Bucket ovfl = deserializeBucket(overflow);
-            if(ovfl.bucketBody.size() < DBApp.B)
-            {
+            if (ovfl.bucketBody.size() < DBApp.B) {
                 ovfl.insertBucketEntry(newEntry);
-                serializeBucket(overflow,ovfl);
-            }
-            else
-            {
+                serializeBucket(overflow, ovfl);
+            } else {
                 BucketEntry tobeinserted = ovfl.bucketBody.lastElement();
-                if(tobeinserted.compareTo(newEntry)>0){
-                    ovfl.bucketBody.removeElementAt(DBApp.B-1);
+                if (tobeinserted.compareTo(newEntry) > 0) {
+                    ovfl.bucketBody.removeElementAt(DBApp.B - 1);
                     ovfl.insertBucketEntry(newEntry);
-                }else{
+                } else {
                     tobeinserted = newEntry;
                 }
-                String ofname = insertInOverFlow(ovfl.getOverFlow(),tobeinserted);
+                String ofname = insertInOverFlow(ovfl.getOverFlow(), tobeinserted);
                 ovfl.setOverFlow(ofname);
-                serializeBucket(overflow,ovfl);
+                serializeBucket(overflow, ovfl);
             }
         }
         return overflow;
@@ -215,14 +268,18 @@ public class GridIndex {
 
     public String getPageNameFromIndex(Comparable clusteringKey) {
         int pkindex = columnNames.indexOf(pk);
-        int indexofRange= indexOfRange(getColumnRanges().elementAt(pkindex),clusteringKey);
+        int indexofRange = indexOfRange(getColumnRanges().elementAt(pkindex), clusteringKey);
         Bucket bucket = deserializeBucket(gridList.elementAt(pkindex).elementAt(indexofRange));
-        while(bucket.bucketBody.lastElement().getClusteringKey().compareTo(clusteringKey)<0){
+        while (bucket.bucketBody.size() == DBApp.B && bucket.bucketBody.lastElement().getClusteringKey().compareTo(clusteringKey) < 0) {
             bucket = deserializeBucket(bucket.overFlow);
         }
-        int i = indexToInsertAt(clusteringKey,bucket.bucketBody);
+        int i = indexToInsertAt(clusteringKey, bucket.bucketBody);
+        if (i == bucket.bucketBody.size()) {
+            i--;
+        }
         return bucket.getBucketBody().elementAt(i).getPageName();
     }
+
     private int indexToInsertAt(Comparable key, Vector<BucketEntry> keysInPage) {
         int lo = 0;
         int hi = keysInPage.size() - 1;

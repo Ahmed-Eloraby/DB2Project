@@ -3,29 +3,31 @@ import java.util.Vector;
 public class Bucket {
     String Bucketname;
     Vector<BucketEntry> bucketBody;
+    String overFlow;
 
     public String getBucketname() {
         return Bucketname;
     }
 
-    String overFlow;
-    public Bucket(String name){
+
+    public Bucket(String name) {
         Bucketname = name;
         bucketBody = new Vector<BucketEntry>();
         overFlow = "";
     }
-    public void insertBucketEntry(BucketEntry newEntry){
-            int lo = 0;
-            int hi = bucketBody.size() - 1;
-            while (lo <= hi) {
-                int i = (lo + hi) / 2;
-                if (newEntry.compareTo(bucketBody.elementAt(i)) < 0) {
-                    hi = i - 1;
-                } else {
-                    lo = i + 1;
-                }
+
+    public void insertBucketEntry(BucketEntry newEntry) {
+        int lo = 0;
+        int hi = bucketBody.size() - 1;
+        while (lo <= hi) {
+            int i = (lo + hi) / 2;
+            if (newEntry.compareTo(bucketBody.elementAt(i)) < 0) {
+                hi = i - 1;
+            } else {
+                lo = i + 1;
             }
-            bucketBody.insertElementAt(newEntry,lo);
+        }
+        bucketBody.insertElementAt(newEntry, lo);
     }
 
     public Vector<BucketEntry> getBucketBody() {
