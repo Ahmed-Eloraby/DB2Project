@@ -295,6 +295,22 @@ public class DBApp implements DBAppInterface {
             colMax.remove(s);
             colType.remove(s);
         }
+        Table table = deserializeTableInfo(tableName);
+        //Check if new grid index already exists
+        for (Vector<String> gic : table.getGridIndicesColumns()) {
+            if (gic.size() == columnNames.length) {
+                boolean same = true;
+                for (String cn : columnNames) {
+                    if (!gic.contains(cn)) {
+                        same = false;
+                        break;
+                    }
+                }
+                if (same == true) {
+                    throw new DBAppException("The Grid index already exists");
+                }
+            }
+        }
         Vector<Vector<Comparable>> columnRanges = new Vector<>();
         for (String x : columnNames) {
             Object value = x;
@@ -367,8 +383,8 @@ public class DBApp implements DBAppInterface {
                 columnRanges.addElement(ranges);
             }
         }
-        GridIndex gridIndex = new GridIndex(tableName, columnNames, columnRanges);
-        Table table = deserializeTableInfo(tableName);
+        GridIndex gridIndex = new GridIndex(tableName, columnNames, columnRanges, primaryKey);
+
         table.getGridIndicesColumns().addElement(gridIndex.getColumnNames());
 
         String s = tableName + table.getGridIndices().size();
