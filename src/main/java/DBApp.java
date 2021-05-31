@@ -1,16 +1,10 @@
 import java.io.*;
 import java.lang.reflect.Constructor;
-
 import java.lang.reflect.InvocationTargetException;
-import java.nio.file.Files;
-import java.nio.file.Paths;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
-import java.time.Duration;
-import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.*;
-import java.util.stream.Collectors;
 
 public class DBApp implements DBAppInterface {
     static int N = 0;
@@ -246,6 +240,8 @@ public class DBApp implements DBAppInterface {
         Hashtable<String, String> colType = new Hashtable<>();
         Hashtable<String, String> colMin = new Hashtable<>();
         Hashtable<String, String> colMax = new Hashtable<>();
+        //Update metadate to change the indexed field to true if it w
+        //+ create a method to check if a certain column is indexed or not to be used in the select function
         String primaryKey = "";
         boolean found = false;
         try {
@@ -311,11 +307,11 @@ public class DBApp implements DBAppInterface {
                 }
             }
         }
+        //update metadata
+        updateMetaIndex(tableName,columnNames);
         Vector<Vector<Comparable>> columnRanges = new Vector<>();
         for (String x : columnNames) {
-            Object value = x;
-            Class type = value.getClass();
-            if (type.getName().equals("java.lang.Integer")) {
+            if (colType.get(x).contains("Int")) {
                 Vector<Comparable> ranges = new Vector<>();
                 Integer maximum = Integer.parseInt(colMin.get(x));
                 Integer minimum = Integer.parseInt(colMax.get(x));
@@ -328,7 +324,7 @@ public class DBApp implements DBAppInterface {
                     i++;
                 }
                 columnRanges.addElement(ranges);
-            } else if (type.getName().equals("java.lang.Double")) {
+            } else if (colType.get(x).contains("Do")) {
                 Double maximum = Double.parseDouble(colMax.get(x));
                 Double minimum = Double.parseDouble(colMin.get(x));
                 Vector<Comparable> ranges = new Vector<Comparable>();
@@ -522,7 +518,7 @@ public class DBApp implements DBAppInterface {
         Tuple newEntry = new Tuple(allColValues.get(primaryKey), allColValues);
         //FETCH Table info
         Table table = deserializeTableInfo(tableName);
-          //if no pages found for the Table
+        //if no pages found for the Table
         if (table.getPageNames().size() == 0) {
             //Create the First Page
             try {
@@ -535,9 +531,9 @@ public class DBApp implements DBAppInterface {
                 table.getPageNames().addElement(newPageName);
                 table.getMinPageValue().addElement(newEntry.getClusteringKey());
                 serializePage(newPageName, newPageBody);
-                for(String g:table.getGridIndices()){
+                for (String g : table.getGridIndices()) {
                     GridIndex gi = deserializeGridIndex(g);
-                        gi.insertInGrid(newEntry,newPageName);
+                    gi.insertInGrid(newEntry, newPageName);
 
                 }
                 serializeTableInfo(tableName, table);
@@ -559,7 +555,7 @@ public class DBApp implements DBAppInterface {
             if (h < table.getGridIndicesColumns().size()) {
                 GridIndex gridIndex = deserializeGridIndex(table.getGridIndices().elementAt(h));
                 pageName = gridIndex.getPageNameFromIndex(newEntry.getClusteringKey());
-                pageIndex=table.getPageNames().indexOf(pageName);
+                pageIndex = table.getPageNames().indexOf(pageName);
             } else {
                 //if Page(s) was found
                 //get index of the page with the possible range
@@ -579,9 +575,9 @@ public class DBApp implements DBAppInterface {
                 page.insertElementAt(newEntry, indexToInsertAt(newEntry.getClusteringKey(), page));
                 serializePage(pageName, page);
                 //insert in index
-                for(String g:table.getGridIndices()){
+                for (String g : table.getGridIndices()) {
                     GridIndex gi = deserializeGridIndex(g);
-                    gi.insertInGrid(newEntry,pageName);
+                    gi.insertInGrid(newEntry, pageName);
                 }
                 table.getMinPageValue().setElementAt(page.firstElement().getClusteringKey(), pageIndex);
             } else {
@@ -589,9 +585,9 @@ public class DBApp implements DBAppInterface {
                 try {
                     page.insertElementAt(newEntry, indexToInsertAt(newEntry.getClusteringKey(), page));
                     //insert in index
-                    for(String g:table.getGridIndices()){
+                    for (String g : table.getGridIndices()) {
                         GridIndex gi = deserializeGridIndex(g);
-                        gi.insertInGrid(newEntry,pageName);
+                        gi.insertInGrid(newEntry, pageName);
                     }
                     Vector<Tuple> firstHalf = new Vector<>(page.subList(0, (page.size()) / 2));
                     Vector<Tuple> secondHalf = new Vector<>(page.subList((page.size()) / 2, page.size()));
@@ -602,10 +598,10 @@ public class DBApp implements DBAppInterface {
                     table.getMinPageValue().insertElementAt(0, pageIndex + 1);
                     table.getMinPageValue().setElementAt(firstHalf.elementAt(0).getClusteringKey(), pageIndex);
                     table.getMinPageValue().setElementAt(secondHalf.elementAt(0).getClusteringKey(), pageIndex + 1);
-                    for(String g:table.getGridIndices()){
+                    for (String g : table.getGridIndices()) {
                         GridIndex gi = deserializeGridIndex(g);
-                        for(Tuple t: secondHalf){
-                            gi.updatePageName(t,newHalfPageName);
+                        for (Tuple t : secondHalf) {
+                            gi.updatePageName(t, newHalfPageName);
                         }
                     }
                     serializePage(pageName, firstHalf);
@@ -837,10 +833,28 @@ public class DBApp implements DBAppInterface {
         if (!pageNames.isEmpty()) {
             //if clustering value is not in the input
             if (clusteringValue == null) {
+                //Check for grid index
+                HashSet<String> hs = new HashSet<>();
+                for(String s:columnNameValue.keySet()){
+                    hs.add(s);
+                }
+                int hsSize = hs.size();
+                int GridIndextoUse=-1;
+                int commonColumns = -1 , size = -1;
+                for(Vector<String> s:table.getGridIndicesColumns()) {
+
+                    for(String col: s)
+                    {
+                        hs.add(s);
+                        if()
+                        {
+
+                        }
+                    }
+                }
                 ArrayList<String> pagesToDelete = new ArrayList<>();
                 boolean deleted = false;
                 for (String pageName : pageNames) {
-                    //OverFlow to be done
                     Vector<Tuple> page = deserializePage(pageName);
                     tuple:
                     //Looping over all tuples in a page

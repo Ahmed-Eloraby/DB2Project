@@ -1,6 +1,5 @@
 import java.io.*;
 import java.time.LocalDateTime;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.Vector;
 
@@ -270,15 +269,22 @@ public class GridIndex {
         int pkindex = columnNames.indexOf(pk);
         int indexofRange = indexOfRange(getColumnRanges().elementAt(pkindex), clusteringKey);
         Bucket bucket = deserializeBucket(gridList.elementAt(pkindex).elementAt(indexofRange));
-        while (bucket.bucketBody.size() == DBApp.B && bucket.bucketBody.lastElement().getClusteringKey().compareTo(clusteringKey) < 0) {
-            bucket = deserializeBucket(bucket.overFlow);
+        if (bucket.bucketBody.size() != 0) {
+            Bucket prevBucket = deserializeBucket(gridList.elementAt(pkindex).elementAt(indexofRange));
+            while (bucket.bucketBody.size() == DBApp.B && bucket.bucketBody.lastElement().getClusteringKey().compareTo(clusteringKey) < 0) {
+                prevBucket = bucket;
+                bucket = deserializeBucket(bucket.overFlow);
+            }
+            int i = indexToInsertAt(clusteringKey, bucket.bucketBody);
+            if (i == bucket.bucketBody.size()) {
+                i--;
+            }
+            return bucket.getBucketBody().elementAt(i).getPageName();
+        } else {
+            return null;
         }
-        int i = indexToInsertAt(clusteringKey, bucket.bucketBody);
-        if (i == bucket.bucketBody.size()) {
-            i--;
-        }
-        return bucket.getBucketBody().elementAt(i).getPageName();
     }
+
 
     private int indexToInsertAt(Comparable key, Vector<BucketEntry> keysInPage) {
         int lo = 0;
