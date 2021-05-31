@@ -337,7 +337,7 @@ public class DBApp implements DBAppInterface {
                     i++;
                 }
                 columnRanges.addElement(ranges);
-            } else if (type.getName().equals("java.util.Date")) {
+            } else if (colType.get(x).contains("Date")) {
                 try {
                     Date minimum = new SimpleDateFormat("yyyy-MM-dd").parse(colMin.get(x));
                     Date maximum = new SimpleDateFormat("yyyy-MM-dd").parse(colMax.get(x));
