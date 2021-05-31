@@ -732,8 +732,7 @@ public class DBApp implements DBAppInterface {
             if (colNameValue.containsKey(clusteringKeyName))
                 throw new DBAppException("Clustering Key can nt be updated");
 
-
-        } catch (FileNotFoundException e) {
+     } catch (FileNotFoundException e) {
             System.out.println("File is not right :(");
         } catch (IOException e) {
             e.printStackTrace();
@@ -811,6 +810,13 @@ public class DBApp implements DBAppInterface {
             //throw new DBAppException("This Table has no records to update");
             return;
         } else {
+
+             for(String s:colNameValue.keySet()){
+              boolean checkindex=checkIndexExist(s,tableName);
+
+             }
+
+
             switch (clusteringKeyType) {
                 case "java.lang.Integer": {
                     Integer primary = 0;

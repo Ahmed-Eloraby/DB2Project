@@ -65,11 +65,11 @@ public class GridIndex {
         bucket.bucketBody.removeElementAt(j);
         if (bucket.overFlow.equals("")) {
             if (bucket.bucketBody.isEmpty()) {
-                if(prevBucket == null){
-                    gridList.elementAt(i).setElementAt(null,indexofRange);
+                if (prevBucket == null) {
+                    gridList.elementAt(i).setElementAt(null, indexofRange);
                     deleteBucket(bucket.getBucketname());
                     return;
-                }else{
+                } else {
                     prevBucket.setOverFlow("");
                     serializeBucket(prevBucket.getBucketname(), prevBucket);
                 }
@@ -89,14 +89,14 @@ public class GridIndex {
         if (bucket.bucketBody.isEmpty()) {
             prevBucket.setOverFlow("");
             deleteBucket(bucket.getBucketname());
-        }
-        else {
+        } else {
             serializeBucket(bucket.getBucketname(), bucket);
         }
         return firstElement;
 
     }
-    private void deleteBucket(String bName){
+
+    private void deleteBucket(String bName) {
         File f = new File("src/main/resources/data/" + bName + ".class");
         f.delete();
     }
