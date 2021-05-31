@@ -614,12 +614,83 @@ public class DBApp implements DBAppInterface {
         }
     }
 
+    public boolean checkIndexExist(String colName, String tableName) {
+
+
+        BufferedReader br = null;
+        try {
+            br = new BufferedReader(new FileReader("src/main/resources/metadata.csv"));
+            String current = br.readLine();
+            while (current != null) {
+                String[] line = current.split(",");
+                if (line[0].equals(tableName) && line[1].equals(colName)) {
+                    if (line[4].equals("true"))
+                        return true;
+                }
+            }
+
+        } catch (FileNotFoundException e) {
+            e.printStackTrace();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        return false;
+    }
+
+    public void updateMetaIndex(String tableName, String[] columnNames) {
+        boolean edited = false;
+        Vector<String> temp = new Vector<>();
+        try {
+            BufferedReader br = new BufferedReader(new FileReader("src/main/resources/metadata.csv"));
+            String current = br.readLine();
+            while (current != null) {
+                String[] line = current.split(",");
+                boolean found = false;
+                if (line[0].equals(tableName)) {
+                    for (String s : columnNames)
+                        if (line[1].equals(s)) {
+                            found = true;
+                            break;
+                        }
+                }
+                if (found == true) {
+                    if(!line[4].equals("true")) {
+                        temp.addElement(line[0] + "," + line[1] + "," + line[2] + "," + line[3] + ",true" + line[5] + "," + line[6]);
+                        edited = true;
+                    }else{
+                        temp.addElement(current);
+                    }
+                } else {
+                    temp.addElement(current);
+                }
+                current = br.readLine();
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        if (edited) {
+            try {
+                FileWriter csvWriter = new FileWriter("src/main/resources/metadata.csv");
+                while (!temp.isEmpty()) {
+                    csvWriter.append(temp.elementAt(0));
+                    csvWriter.append("\n");
+                    temp.removeElementAt(0);
+                }
+                csvWriter.flush();
+                csvWriter.close();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+
+    }
 
     @Override
     public void updateTable(String tableName, String clusteringKeyValue, Hashtable<String, Object> colNameValue) throws DBAppException {
         Hashtable<String, String> colType = new Hashtable();
         Hashtable<String, String> colMin = new Hashtable();
         Hashtable<String, String> colMax = new Hashtable();
+        Vector <String> indexed = new Vector<String>();
         String clusteringKeyType = "";
         String clusteringKeyName = "";
         try {
@@ -642,6 +713,13 @@ public class DBApp implements DBAppInterface {
                         if (current != null) {
                             line = current.split(",");
                         }
+
+
+                        if(line[4].equals("true")) {
+                            indexed.add(;
+                        }
+
+
                     } while (current != null && line[0].equals(tableName));
                     break;
                 }
