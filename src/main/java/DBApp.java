@@ -1088,7 +1088,51 @@ public class DBApp implements DBAppInterface {
         }
 
     }
+    public Vector<Tuple> selectWithIndex(SQLTerm term) {
+        Table t = Des
+        for (Vector<String> s : term._strTableName.getGridIndicesColumns()) {
+            int currentCommonCols = 0;
+            for (String col : s) {
+                hs.add(col);
+                if (hs.size() > columnNameValue.size()) {
+                    hs.remove(col);
+                } else {
+                    currentCommonCols++;
+                }
+            }
+            if (commonColumns < currentCommonCols) {
+                gridIndextoUse = pos;
+                size = s.size();
+                commonColumns = currentCommonCols;
+            } else if (commonColumns == currentCommonCols) {
+                if (size > s.size()) {
+                    gridIndextoUse = pos;
+                    size = s.size();
+                    commonColumns = currentCommonCols;
+                }
+            }
+            pos++;
+        }
+        switch (term._strOperator) {
+            case "=":
 
+                break;
+            case "!=":
+
+                break;
+            case ">":
+
+                break;
+            case ">=":
+
+                break;
+            case "<":
+                break;
+            case "<=":
+
+        }
+        return null;
+    }
     public Vector<Tuple> selectWithoutIndex(SQLTerm term) {
         Table table = deserializeTableInfo(term._strTableName);
         Vector<String> p = table.getPageNames();
@@ -1295,6 +1339,8 @@ public class DBApp implements DBAppInterface {
 
         return sqlTermResults.firstElement().iterator();
     }
+
+
 
     private void createTableInfo(String TableName) {
         try {
