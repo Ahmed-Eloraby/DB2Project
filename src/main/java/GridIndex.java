@@ -107,7 +107,7 @@ public class GridIndex {
             if (c != null) {
                 //find the range
                 int indexofRange = indexOfRange(columnRanges.elementAt(i), c);
-                insertInRange(i, indexofRange, t, pageName);
+                insertInRange(i, indexofRange, t, pageName ,c);
             }
         }
     }
@@ -146,8 +146,8 @@ public class GridIndex {
         return -1;
     }
 
-    private void insertInRange(int i, int indexofRange, Tuple t, String pageName) {
-        BucketEntry newEntry = new BucketEntry(t.getClusteringKey(), pageName);
+    private void insertInRange(int i, int indexofRange, Tuple t, String pageName,Comparable c) {
+        BucketEntry newEntry = new BucketEntry(t.getClusteringKey(), pageName,c );
         //check if bucket exist:
         if (gridList.elementAt(i).elementAt(indexofRange) == null) {
             String temp = getnewBucketName(tableName);
@@ -270,9 +270,7 @@ public class GridIndex {
         int indexofRange = indexOfRange(getColumnRanges().elementAt(pkindex), clusteringKey);
         Bucket bucket = deserializeBucket(gridList.elementAt(pkindex).elementAt(indexofRange));
         if (bucket.bucketBody.size() != 0) {
-            Bucket prevBucket = deserializeBucket(gridList.elementAt(pkindex).elementAt(indexofRange));
             while (bucket.bucketBody.size() == DBApp.B && bucket.bucketBody.lastElement().getClusteringKey().compareTo(clusteringKey) < 0) {
-                prevBucket = bucket;
                 bucket = deserializeBucket(bucket.overFlow);
             }
             int i = indexToInsertAt(clusteringKey, bucket.bucketBody);

@@ -308,7 +308,7 @@ public class DBApp implements DBAppInterface {
             }
         }
         //update metadata
-        updateMetaIndex(tableName,columnNames);
+        updateMetaIndex(tableName, columnNames);
         Vector<Vector<Comparable>> columnRanges = new Vector<>();
         for (String x : columnNames) {
             if (colType.get(x).contains("Int")) {
@@ -614,83 +614,13 @@ public class DBApp implements DBAppInterface {
         }
     }
 
-    public boolean checkIndexExist(String colName, String tableName) {
-
-
-        BufferedReader br = null;
-        try {
-            br = new BufferedReader(new FileReader("src/main/resources/metadata.csv"));
-            String current = br.readLine();
-            while (current != null) {
-                String[] line = current.split(",");
-                if (line[0].equals(tableName) && line[1].equals(colName)) {
-                    if (line[4].equals("true"))
-                        return true;
-                }
-            }
-
-        } catch (FileNotFoundException e) {
-            e.printStackTrace();
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-        return false;
-    }
-
-    public void updateMetaIndex(String tableName, String[] columnNames) {
-        boolean edited = false;
-        Vector<String> temp = new Vector<>();
-        try {
-            BufferedReader br = new BufferedReader(new FileReader("src/main/resources/metadata.csv"));
-            String current = br.readLine();
-            while (current != null) {
-                String[] line = current.split(",");
-                boolean found = false;
-                if (line[0].equals(tableName)) {
-                    for (String s : columnNames)
-                        if (line[1].equals(s)) {
-                            found = true;
-                            break;
-                        }
-                }
-                if (found == true) {
-                    if(!line[4].equals("true")) {
-                        temp.addElement(line[0] + "," + line[1] + "," + line[2] + "," + line[3] + ",true" + line[5] + "," + line[6]);
-                        edited = true;
-                    }else{
-                        temp.addElement(current);
-                    }
-                } else {
-                    temp.addElement(current);
-                }
-                current = br.readLine();
-            }
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-        if (edited) {
-            try {
-                FileWriter csvWriter = new FileWriter("src/main/resources/metadata.csv");
-                while (!temp.isEmpty()) {
-                    csvWriter.append(temp.elementAt(0));
-                    csvWriter.append("\n");
-                    temp.removeElementAt(0);
-                }
-                csvWriter.flush();
-                csvWriter.close();
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
-        }
-
-    }
 
     @Override
     public void updateTable(String tableName, String clusteringKeyValue, Hashtable<String, Object> colNameValue) throws DBAppException {
         Hashtable<String, String> colType = new Hashtable();
         Hashtable<String, String> colMin = new Hashtable();
         Hashtable<String, String> colMax = new Hashtable();
-        Vector <String> indexed = new Vector<String>();
+        Vector<String> indexed = new Vector<String>();
         String clusteringKeyType = "";
         String clusteringKeyName = "";
         try {
@@ -715,8 +645,8 @@ public class DBApp implements DBAppInterface {
                         }
 
 
-                        if(line[4].equals("true")) {
-                            indexed.add(;
+                        if (line[4].equals("true")) {
+                            indexed.add(line[1]);
                         }
 
 
@@ -732,7 +662,7 @@ public class DBApp implements DBAppInterface {
             if (colNameValue.containsKey(clusteringKeyName))
                 throw new DBAppException("Clustering Key can nt be updated");
 
-     } catch (FileNotFoundException e) {
+        } catch (FileNotFoundException e) {
             System.out.println("File is not right :(");
         } catch (IOException e) {
             e.printStackTrace();
@@ -811,34 +741,56 @@ public class DBApp implements DBAppInterface {
             return;
         } else {
 
-             for(String s:colNameValue.keySet()){
-              boolean checkindex=checkIndexExist(s,tableName);
-
-             }
-
 
             switch (clusteringKeyType) {
                 case "java.lang.Integer": {
                     Integer primary = 0;
                     try {
                         primary = Integer.parseInt(clusteringKeyValue);
+
                     } catch (Exception e) {
                         throw new DBAppException("ClusteringKeyValue Can not be parsed to Integer");
                     }
-                    int pageIndex = getPageIndex(primary, table.getMinPageValue());
-                    String pageName = table.getPageNames().elementAt(pageIndex);
+                    String pageName = "";
+                    int pageIndex = -1;
+                    //Check if a primary index exists
+                    int h = 0;
+                    for (Vector<String> cn : table.getGridIndicesColumns()) {
+                        if (cn.contains(clusteringKeyName)) {
+                            break;
+                        }
+                        h++;
+                    }
+                    if (h < table.getGridIndicesColumns().size()) {
+                        GridIndex gridIndex = deserializeGridIndex(table.getGridIndices().elementAt(h));
+                        pageName = gridIndex.getPageNameFromIndex(primary);
+                        pageIndex = table.getPageNames().indexOf(pageName);
+                    } else {
+
+
+                        pageIndex = getPageIndex(primary, table.getMinPageValue());
+                        pageName = table.getPageNames().elementAt(pageIndex);
+                    }
                     Vector<Tuple> page = deserializePage(pageName);
                     int keyIndex = getKeyIndex(primary, page);
                     if (keyIndex == -1) {
                         //throw new DBAppException("Record doesn't exist");
                         return;
                     }
+                    Tuple old = new Tuple(page.elementAt(keyIndex).getClusteringKey(), (Hashtable<String, Comparable>) (page.elementAt(keyIndex).getEntries().clone()));
                     Hashtable<String, Comparable> allColValues = page.elementAt(keyIndex).getEntries();
                     for (String s : colNameValue.keySet()) {
                         allColValues.put(s, (Comparable) colNameValue.get(s));
                     }
                     page.elementAt(keyIndex).setEntries(allColValues);
                     serializePage(pageName, page);
+                    Tuple neo = page.elementAt(keyIndex);
+                    serializePage(pageName, page);
+                    for (int i = 0; i < table.getGridIndices().size(); i++) {
+                        GridIndex x = deserializeGridIndex(table.getGridIndices().elementAt(i));
+                        x.changeBucket(old, neo, pageName);
+                        serializeGridIndex(table.getGridIndices().elementAt(i), x);
+                    }
                     break;
                 }
                 case "java.lang.Double": {
@@ -848,57 +800,141 @@ public class DBApp implements DBAppInterface {
                     } catch (Exception e) {
                         throw new DBAppException("ClusteringKeyValue Can not be parsed to Double");
                     }
-                    int pageIndex = getPageIndex(primary, table.getMinPageValue());
-                    String pageName = table.getPageNames().elementAt(pageIndex);
+                    String pageName = "";
+                    int pageIndex = -1;
+                    //Check if a primary index exists
+                    int h = 0;
+                    for (Vector<String> cn : table.getGridIndicesColumns()) {
+                        if (cn.contains(clusteringKeyName)) {
+                            break;
+                        }
+                        h++;
+                    }
+                    if (h < table.getGridIndicesColumns().size()) {
+                        GridIndex gridIndex = deserializeGridIndex(table.getGridIndices().elementAt(h));
+                        pageName = gridIndex.getPageNameFromIndex(primary);
+                        pageIndex = table.getPageNames().indexOf(pageName);
+                    } else {
+
+
+                        pageIndex = getPageIndex(primary, table.getMinPageValue());
+                        pageName = table.getPageNames().elementAt(pageIndex);
+                    }
+
                     Vector<Tuple> page = deserializePage(pageName);
                     int keyIndex = getKeyIndex((Comparable) primary, page);
+
                     if (keyIndex == -1) {
                         //throw new DBAppException("Record doesn't exist");
                         return;
                     }
+                    Tuple old = new Tuple(page.elementAt(keyIndex).getClusteringKey(), (Hashtable<String, Comparable>) (page.elementAt(keyIndex).getEntries().clone()));
+
                     Hashtable<String, Comparable> allColValues = page.elementAt(keyIndex).getEntries();
                     for (String s : colNameValue.keySet()) {
                         allColValues.put(s, (Comparable) colNameValue.get(s));
                     }
                     page.elementAt(keyIndex).setEntries(allColValues);
+                    Tuple neo = page.elementAt(keyIndex);
                     serializePage(pageName, page);
+                    for (int i = 0; i < table.getGridIndices().size(); i++) {
+                        GridIndex x = deserializeGridIndex(table.getGridIndices().elementAt(i));
+                        x.changeBucket(old, neo, pageName);
+                        serializeGridIndex(table.getGridIndices().elementAt(i), x);
+                    }
+
+
                     break;
                 }
                 case "java.lang.String": {
-                    int pageIndex = getPageIndex(clusteringKeyValue, table.getMinPageValue());
-                    String pageName = table.getPageNames().elementAt(pageIndex);
+                    String pageName = "";
+                    int pageIndex = -1;
+                    //Check if a primary index exists
+                    int h = 0;
+                    for (Vector<String> cn : table.getGridIndicesColumns()) {
+                        if (cn.contains(clusteringKeyName)) {
+                            break;
+                        }
+                        h++;
+                    }
+                    if (h < table.getGridIndicesColumns().size()) {
+                        GridIndex gridIndex = deserializeGridIndex(table.getGridIndices().elementAt(h));
+                        pageName = gridIndex.getPageNameFromIndex(clusteringKeyValue);
+                        pageIndex = table.getPageNames().indexOf(pageName);
+                    } else {
+
+
+                        pageIndex = getPageIndex(clusteringKeyValue, table.getMinPageValue());
+                        pageName = table.getPageNames().elementAt(pageIndex);
+                    }
                     Vector<Tuple> page = deserializePage(pageName);
                     int keyIndex = getKeyIndex(clusteringKeyValue, page);
                     if (keyIndex == -1) {
 //                        throw new DBAppException("Record doesn't exist");
                         return;
                     }
+                    Tuple old = new Tuple(page.elementAt(keyIndex).getClusteringKey(), (Hashtable<String, Comparable>) (page.elementAt(keyIndex).getEntries().clone()));
                     Hashtable<String, Comparable> allColValues = page.elementAt(keyIndex).getEntries();
                     for (String s : colNameValue.keySet()) {
                         allColValues.put(s, (Comparable) colNameValue.get(s));
                     }
                     page.elementAt(keyIndex).setEntries(allColValues);
                     serializePage(pageName, page);
+                    Tuple neo = page.elementAt(keyIndex);
+                    serializePage(pageName, page);
+                    for (int i = 0; i < table.getGridIndices().size(); i++) {
+                        GridIndex x = deserializeGridIndex(table.getGridIndices().elementAt(i));
+                        x.changeBucket(old, neo, pageName);
+                        serializeGridIndex(table.getGridIndices().elementAt(i), x);
+                    }
+
                     break;
                 }
                 case "java.util.Date":
                     SimpleDateFormat sdformat = new SimpleDateFormat("yyyy-MM-dd");
                     try {
                         Date primary = sdformat.parse(clusteringKeyValue);
-                        int pageIndex = getPageIndex(primary, table.getMinPageValue());
-                        String pageName = table.getPageNames().elementAt(pageIndex);
+                        String pageName = "";
+                        int pageIndex = -1;
+                        //Check if a primary index exists
+                        int h = 0;
+                        for (Vector<String> cn : table.getGridIndicesColumns()) {
+                            if (cn.contains(clusteringKeyName)) {
+                                break;
+                            }
+                            h++;
+                        }
+                        if (h < table.getGridIndicesColumns().size()) {
+                            GridIndex gridIndex = deserializeGridIndex(table.getGridIndices().elementAt(h));
+                            pageName = gridIndex.getPageNameFromIndex(primary);
+                            pageIndex = table.getPageNames().indexOf(pageName);
+                        } else {
+
+
+                            pageIndex = getPageIndex(primary, table.getMinPageValue());
+                            pageName = table.getPageNames().elementAt(pageIndex);
+                        }
+
                         Vector<Tuple> page = deserializePage(pageName);
                         int keyIndex = getKeyIndex(primary, page);
                         if (keyIndex == -1) {
                             //throw new DBAppException("Record doesn't exist");
                             return;
                         }
+                        Tuple old = new Tuple(page.elementAt(keyIndex).getClusteringKey(), (Hashtable<String, Comparable>) (page.elementAt(keyIndex).getEntries().clone()));
                         Hashtable<String, Comparable> allColValues = page.elementAt(keyIndex).getEntries();
                         for (String s : colNameValue.keySet()) {
                             allColValues.put(s, (Comparable) colNameValue.get(s));
                         }
                         page.elementAt(keyIndex).setEntries(allColValues);
                         serializePage(pageName, page);
+                        Tuple neo = page.elementAt(keyIndex);
+                        serializePage(pageName, page);
+                        for (int i = 0; i < table.getGridIndices().size(); i++) {
+                            GridIndex x = deserializeGridIndex(table.getGridIndices().elementAt(i));
+                            x.changeBucket(old, neo, pageName);
+                            serializeGridIndex(table.getGridIndices().elementAt(i), x);
+                        }
                     } catch (ParseException e) {
                         throw new DBAppException("ClusteringKeyValue Can not be parsed to Date");
                     }
@@ -919,22 +955,37 @@ public class DBApp implements DBAppInterface {
             if (clusteringValue == null) {
                 //Check for grid index
                 HashSet<String> hs = new HashSet<>();
-                for(String s:columnNameValue.keySet()){
+                for (String s : columnNameValue.keySet()) {
                     hs.add(s);
                 }
-                int hsSize = hs.size();
-                int GridIndextoUse=-1;
-                int commonColumns = -1 , size = -1;
-                for(Vector<String> s:table.getGridIndicesColumns()) {
-
-                    for(String col: s)
-                    {
-                        hs.add(s);
-                        if()
-                        {
-
+                int gridIndextoUse = -1;
+                int commonColumns = 0, size = 0, pos = 0;
+                for (Vector<String> s : table.getGridIndicesColumns()) {
+                    int currentCommonCols = 0;
+                    for (String col : s) {
+                        hs.add(col);
+                        if (hs.size() > columnNameValue.size()) {
+                            hs.remove(col);
+                        } else {
+                            currentCommonCols++;
                         }
                     }
+                    if (commonColumns < currentCommonCols) {
+                        gridIndextoUse = pos;
+                        size = s.size();
+                        commonColumns = currentCommonCols;
+                    } else if (commonColumns == currentCommonCols) {
+                        if (size > s.size()) {
+                            gridIndextoUse = pos;
+                            size = s.size();
+                            commonColumns = currentCommonCols;
+                        }
+                    }
+                    pos++;
+                }
+                if (gridIndextoUse != -1) {
+                    GridIndex gridIndex = deserializeGridIndex(table.getGridIndices().elementAt(gridIndextoUse));
+                    pageNames = gridIndex.getNeededPageNames(columnNameValue);
                 }
                 ArrayList<String> pagesToDelete = new ArrayList<>();
                 boolean deleted = false;
@@ -982,8 +1033,24 @@ public class DBApp implements DBAppInterface {
                 }
             } else {
                 // If the Clustering Key is Known
-                int pageIndex = getPageIndex(clusteringValue, table.getMinPageValue());
-                String pageName = pageNames.elementAt(pageIndex);
+                int h = 0;
+                for (Vector<String> cn : table.getGridIndicesColumns()) {
+                    if (cn.contains(table.getprimaryKey())) {
+                        break;
+                    }
+                    h++;
+                }
+                int pageIndex = -1;
+                String pageName = "";
+                if (h < table.getGridIndicesColumns().size()) {
+                    GridIndex gridIndex = deserializeGridIndex(table.getGridIndices().elementAt(h));
+                    pageName = gridIndex.getPageNameFromIndex(clusteringValue);
+                    pageIndex = table.getPageNames().indexOf(pageName);
+                } else {
+                    pageIndex = getPageIndex(clusteringValue, table.getMinPageValue());
+                    pageName = pageNames.elementAt(pageIndex);
+                }
+
                 Vector<Tuple> mainPageBody = deserializePage(pageName);
                 int keyIndex = getKeyIndex(clusteringValue, mainPageBody);
                 if (keyIndex != -1) {
@@ -1181,8 +1248,51 @@ public class DBApp implements DBAppInterface {
             }
 
         }
+        Vector<Vector<Tuple>> sqlTermResults = new Vector<>();
+        for(SQLTerm s: sqlTerms){
+            if(checkIndexExist(s._strColumnName,s._strTableName)){
+                sqlTermResults.addElement(selectWithIndex(s));
 
-        return null;
+            }else{
+                sqlTermResults.addElement(selectWithoutIndex(s));
+            }
+        }
+        ArrayList<String> Operators = (ArrayList<String>) Arrays.asList(arrayOperators);
+        //And
+        for(int i = 0; i< Operators.size();i++){
+            if(Operators.get(i).equals("AND")){
+                Vector<Tuple> result1 = sqlTermResults.remove(i);
+                Vector<Tuple> result2 = sqlTermResults.remove(i);
+                Vector<Tuple> result = andVectors(result1,result2);
+                sqlTermResults.insertElementAt(result,i);
+                Operators.remove(i);
+                i--;
+            }
+        }
+        //OR
+        for(int i = 0; i< Operators.size();i++){
+            if(Operators.get(i).equals("OR")){
+                Vector<Tuple> result1 = sqlTermResults.remove(i);
+                Vector<Tuple> result2 = sqlTermResults.remove(i);
+                Vector<Tuple> result = orVectors(result1,result2);
+                sqlTermResults.insertElementAt(result,i);
+                Operators.remove(i);
+                i--;
+            }
+        }
+        //XOR
+        for(int i = 0; i< Operators.size();i++){
+            if(Operators.get(i).equals("XOR")){
+                Vector<Tuple> result1 = sqlTermResults.remove(i);
+                Vector<Tuple> result2 = sqlTermResults.remove(i);
+                Vector<Tuple> result = xorVectors(result1,result2);
+                sqlTermResults.insertElementAt(result,i);
+                Operators.remove(i);
+                i--;
+            }
+        }
+
+        return sqlTermResults.firstElement().iterator();
     }
 
     private void createTableInfo(String TableName) {
@@ -1334,6 +1444,9 @@ public class DBApp implements DBAppInterface {
     }
 
     private Comparable validateInput(String tableName, Hashtable<String, Object> colNameValue) throws DBAppException {
+        //TO be reviewed
+        if (colNameValue.isEmpty())
+            throw new DBAppException("nothing to delete");
         Hashtable<String, String> colType = new Hashtable<>();
         Hashtable<String, String> colMin = new Hashtable<>();
         Hashtable<String, String> colMax = new Hashtable<>();
@@ -1451,6 +1564,77 @@ public class DBApp implements DBAppInterface {
                 i.insertInGrid(tup, page);
             }
         }
+    }
+
+    public boolean checkIndexExist(String colName, String tableName) {
+
+
+        BufferedReader br = null;
+        try {
+            br = new BufferedReader(new FileReader("src/main/resources/metadata.csv"));
+            String current = br.readLine();
+            while (current != null) {
+                String[] line = current.split(",");
+                if (line[0].equals(tableName) && line[1].equals(colName)) {
+                    if (line[4].equals("true"))
+                        return true;
+                }
+            }
+
+        } catch (FileNotFoundException e) {
+            e.printStackTrace();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        return false;
+    }
+
+    public void updateMetaIndex(String tableName, String[] columnNames) {
+        boolean edited = false;
+        Vector<String> temp = new Vector<>();
+        try {
+            BufferedReader br = new BufferedReader(new FileReader("src/main/resources/metadata.csv"));
+            String current = br.readLine();
+            while (current != null) {
+                String[] line = current.split(",");
+                boolean found = false;
+                if (line[0].equals(tableName)) {
+                    for (String s : columnNames)
+                        if (line[1].equals(s)) {
+                            found = true;
+                            break;
+                        }
+                }
+                if (found == true) {
+                    if (!line[4].equals("true")) {
+                        temp.addElement(line[0] + "," + line[1] + "," + line[2] + "," + line[3] + ",true" + line[5] + "," + line[6]);
+                        edited = true;
+                    } else {
+                        temp.addElement(current);
+                    }
+                } else {
+                    temp.addElement(current);
+                }
+                current = br.readLine();
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        if (edited) {
+            try {
+                FileWriter csvWriter = new FileWriter("src/main/resources/metadata.csv");
+                while (!temp.isEmpty()) {
+                    csvWriter.append(temp.elementAt(0));
+                    csvWriter.append("\n");
+                    temp.removeElementAt(0);
+                }
+                csvWriter.flush();
+                csvWriter.close();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+
     }
 
     private Vector<Tuple> andVectors(Vector<Tuple> v1, Vector<Tuple> v2) {

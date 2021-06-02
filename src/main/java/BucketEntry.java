@@ -1,14 +1,19 @@
 public class BucketEntry implements Comparable {
     private String pageName;
-    private Comparable clusteringKey;
+    private Comparable clusteringKey,columnValue;
 
     public void setPageName(String pageName) {
         this.pageName = pageName;
     }
 
-    public BucketEntry(Comparable clusteringKey, String pageName) {
+    public BucketEntry(Comparable clusteringKey, String pageName,Comparable columnValue) {
         this.pageName = pageName;
         this.clusteringKey = clusteringKey;
+        this.columnValue = columnValue;
+    }
+
+    public Comparable getColumnValue() {
+        return columnValue;
     }
 
     public String getPageName() {
