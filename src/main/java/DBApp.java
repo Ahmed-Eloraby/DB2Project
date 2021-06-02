@@ -1086,6 +1086,7 @@ public class DBApp implements DBAppInterface {
             return;
 
         }
+
     }
 
     public Vector<Tuple> selectWithoutIndex(SQLTerm term) {

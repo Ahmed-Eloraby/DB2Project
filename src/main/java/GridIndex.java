@@ -1,6 +1,8 @@
 import java.io.*;
 import java.time.LocalDateTime;
 import java.util.Collections;
+import java.util.HashSet;
+import java.util.Hashtable;
 import java.util.Vector;
 
 public class GridIndex {
@@ -283,7 +285,6 @@ public class GridIndex {
         }
     }
 
-
     private int indexToInsertAt(Comparable key, Vector<BucketEntry> keysInPage) {
         int lo = 0;
         int hi = keysInPage.size() - 1;
@@ -296,6 +297,45 @@ public class GridIndex {
             }
         }
         return lo;
+    }
+
+
+    public Vector<String> getNeededPageNames(Hashtable<String, Object> columnNameValue) {
+        Vector<String> columnone = new Vector<String>();
+        HashSet<String> hs = new HashSet<>();
+        for(String currentColumnName:columnNameValue.keySet()) {
+            int i = columnNames.indexOf(currentColumnName);
+            int rangeindex = indexOfRange(columnRanges.elementAt(i), (Comparable) columnNameValue.get(currentColumnName));
+           // getPageNamesForColumnValue(i,rangeindex,(Comparable) columnNameValue.get(currentColumnName),hs);
+        }
+
+
+        return columnone;
+    }
+
+    public void changeBucket(Tuple old, Tuple neo,String pagename) {
+
+        for (int i = 0; i < columnNames.size(); i++) {
+            Comparable cold = old.getEntries().get(columnNames.elementAt(i));
+            Comparable  cneo= old.getEntries().get(columnNames.elementAt(i));
+            if (cold != null && cneo!=null) {
+
+                int indexofRangeold = indexOfRange(columnRanges.elementAt(i), cold);
+                int indexofRangeneo = indexOfRange(columnRanges.elementAt(i), cneo);
+                if(indexofRangeold!=indexofRangeneo){
+                    deleteFromRange(i,indexofRangeold,old);
+                    insertInRange(i,indexofRangeneo,neo,pagename,cneo);
+                }
+            }else if(cold==null && cneo!=null){
+                int indexofRangeneo = indexOfRange(columnRanges.elementAt(i), cneo);
+                insertInRange(i,indexofRangeneo,neo,pagename,cneo);
+            }
+        }
+    }
+
+  //  public getPageNamesForColumnValue(int i, int range, Comparable columnnamval,HashSet<String> hs)
+    {
+
     }
 }
 
