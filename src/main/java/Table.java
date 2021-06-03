@@ -52,10 +52,13 @@ public class Table implements Serializable, Comparable {
 
     @Override
     public String toString() {
-        return "Table{\n" +
-                "name= '" + name + "'\n" +
-                ", pageNames= " + pageNames + "\n" +
-                ", minClusteringinAPage= " + minPageValue +
-                "\n}";
+        return "Table{" +
+                "name='" + name + '\'' +
+                ", pageNames=" + pageNames + "\n"+
+                ", gridIndices=" + gridIndices.size()+gridIndices + "\n"+
+                ", gridIndicesColumns="+ gridIndicesColumns.size()+ gridIndicesColumns +"\n"+
+                ", minPageValue=" + minPageValue +"\n"+
+                ", primarykey='" + primarykey + '\'' +"\n"+
+                '}';
     }
 }

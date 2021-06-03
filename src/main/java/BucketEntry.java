@@ -1,8 +1,9 @@
+import java.io.Serializable;
 import java.util.Hashtable;
 
-public class BucketEntry implements Comparable {
+public class BucketEntry implements Comparable, Serializable {
     private String pageName;
-    private Comparable clusteringKey/*,columnValue*/;
+    private Comparable clusteringKey;
     private Hashtable<String,Comparable> columnvalues;
 
     public void setPageName(String pageName) {
@@ -30,6 +31,15 @@ public class BucketEntry implements Comparable {
 
     @Override
     public int compareTo(Object o) {
-        return clusteringKey.compareTo((BucketEntry)o);
+        return clusteringKey.compareTo(((BucketEntry)o).clusteringKey);
+    }
+
+    @Override
+    public String toString() {
+        return "BucketEntry{" +
+                "pageName='" + pageName + '\'' +
+                ", clusteringKey=" + clusteringKey +
+                ", columnvalues=" + columnvalues +
+                '}';
     }
 }

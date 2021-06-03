@@ -1,6 +1,7 @@
+import java.io.Serializable;
 import java.util.Vector;
 
-public class Bucket {
+public class Bucket implements Serializable {
     String Bucketname;
     Vector<BucketEntry> bucketBody;
     String overFlow;
@@ -34,9 +35,6 @@ public class Bucket {
         return bucketBody;
     }
 
-    public void setBucketBody(Vector<BucketEntry> bucketBody) {
-        this.bucketBody = bucketBody;
-    }
 
     public String getOverFlow() {
         return overFlow;
@@ -44,5 +42,14 @@ public class Bucket {
 
     public void setOverFlow(String overFlow) {
         this.overFlow = overFlow;
+    }
+
+    @Override
+    public String toString() {
+        return "Bucket{" +
+                "Bucketname='" + Bucketname + '\'' +
+                ", \n bucketBody=" + bucketBody +
+                ", overFlow='" + overFlow + '\'' +
+                '}';
     }
 }

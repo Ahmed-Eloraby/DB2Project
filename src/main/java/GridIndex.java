@@ -5,7 +5,7 @@ import java.util.HashSet;
 import java.util.Hashtable;
 import java.util.Vector;
 
-public class GridIndex {
+public class GridIndex implements Serializable {
     public String getTableName() {
         return tableName;
     }
@@ -34,7 +34,9 @@ public class GridIndex {
 
     public GridIndex(String tableName, String[] columnNames, Vector<Vector<Comparable>> columnRanges, String pk) {
         this.tableName = tableName;
-        this.gridList = new Vector<>((int) Math.pow(11, columnNames.length));
+        this.gridList = new Vector<>();
+        gridList.setSize((int) Math.pow(11, columnNames.length));
+        Collections.fill(gridList,"");
         this.columnNames = new Vector<>();
         Collections.addAll(this.columnNames, columnNames);
         this.columnRanges = columnRanges;
@@ -42,16 +44,16 @@ public class GridIndex {
     }
 
     public int getIndexInGrid(Hashtable<String, Comparable> h) {
-        int p = columnNames.size() - 1;
-        int index = gridList.size();
+        int order = columnNames.size() - 1;
+        int index = 0;
         for (int i = 0; i < columnNames.size(); i++) {
             if (h.get(columnNames.elementAt(i)) != null) {
                 int rangeindex = indexOfRange(columnRanges.elementAt(i), h.get(columnNames.elementAt(i)));
-                index += (int) Math.pow(11, p) * rangeindex;
+                index += (int) Math.pow(11, order) * rangeindex;
             } else {
-                index += (int) Math.pow(11, p) * 10;
+                index += (int) Math.pow(11, order) * 10;
             }
-            p--;
+            order--;
         }
         return index;
     }
@@ -72,10 +74,10 @@ public class GridIndex {
         //index of bucket entry to delete
         int j = getBucketEntryIndex(bucket, key);
         bucket.bucketBody.removeElementAt(j);
-        if (bucket.overFlow.equals("")) {
+        if (bucket.overFlow.isEmpty()) {
             if (bucket.bucketBody.isEmpty()) {
                 if (prevBucket == null) {
-                    gridList.setElementAt(null, index);
+                    gridList.setElementAt("", index);
                     deleteBucket(bucket.getBucketname());
                     return;
                 } else {
@@ -92,7 +94,7 @@ public class GridIndex {
 
     private BucketEntry shiftOverFlow(Bucket prevBucket, String of) {
         Bucket bucket = deserializeBucket(of);
-        if (!bucket.overFlow.equals(""))
+        if (!(bucket.overFlow .isEmpty()))
             bucket.bucketBody.addElement(shiftOverFlow(bucket, prevBucket.overFlow));
         BucketEntry firstElement = bucket.bucketBody.remove(0);
         if (bucket.bucketBody.isEmpty()) {
@@ -123,7 +125,7 @@ public class GridIndex {
         }
         BucketEntry newEntry = new BucketEntry(key, pageName, ht);
         //check if bucket exist:
-        if (gridList.elementAt(index) == null) {
+        if (gridList.elementAt(index).isEmpty()) {
             String bucketName = getnewBucketName(tableName);
             Bucket bucket = new Bucket(bucketName);
             bucket.bucketBody.addElement(newEntry);
@@ -146,13 +148,13 @@ public class GridIndex {
                 //Bucket is not Full
                 currentBucket.insertBucketEntry(newEntry);
             }
-            serializeBucket(gridList.elementAt(index), currentBucket);
+            serializeBucket(currentBucket.getBucketname(), currentBucket);
         }
 
     }
 
     private String insertInOverFlow(String overflow, BucketEntry newEntry) {
-        if (overflow.equals("")) {
+        if (overflow.isEmpty()) {
             String tempname = getnewBucketName(tableName);
             Bucket b = new Bucket(tempname);
             b.insertBucketEntry(newEntry);
@@ -263,7 +265,8 @@ public class GridIndex {
         } catch (InterruptedException e) {
             e.printStackTrace();
         }
-        return tableName + "Bucket" + now.getDayOfYear() + now.getHour() + now.getMinute() + now.getSecond() + now.getNano();
+        String s = tableName + "Bucket" + now.getDayOfYear() + now.getHour() + now.getMinute() + now.getSecond() + now.getNano();
+        return s;
     }
 
     private BucketEntry getBucketEntry(int index, Comparable key) {
@@ -358,7 +361,7 @@ public class GridIndex {
             getLargestOfSmaller(index - 1);
         } else {
             Bucket bucket = deserializeBucket(gridList.elementAt(index));
-            while (!bucket.overFlow.equals("")) {
+            while (!(bucket.overFlow.isEmpty())) {
                 bucket = deserializeBucket(bucket.overFlow);
             }
             return bucket.bucketBody.lastElement().getPageName();
@@ -501,15 +504,18 @@ public class GridIndex {
     }
 
     private void getEqualValue(String colName, Comparable colValue, HashSet<String> pageNames, String bucketName) {
-        if (bucketName != null) {
+       if (bucketName.isEmpty())
+           return;
+            System.out.println(bucketName);
             Bucket bucket = deserializeBucket(bucketName);
+            System.out.println(bucket);
             for (BucketEntry be : bucket.bucketBody) {
                 if (be.getColumnvalues().get(colName).compareTo(colValue) == 0) {
                     pageNames.add(be.getPageName());
                 }
             }
             getEqualValue(colName, colValue, pageNames, bucket.overFlow);
-        }
+
     }
 
     private int indexToInsertAt(Comparable key, Vector<BucketEntry> keysInPage) {
