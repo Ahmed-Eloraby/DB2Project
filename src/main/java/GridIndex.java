@@ -316,7 +316,6 @@ public class GridIndex {
     }
 
     public String getPageNameFromIndex(Comparable clusteringKey) {
-        int pkindex = columnNames.indexOf(pk);
         Hashtable<String, Comparable> ht = new Hashtable<>();
         ht.put(pk, clusteringKey);
         int index = getIndexInGrid(ht);
@@ -353,12 +352,12 @@ public class GridIndex {
         }
     }
 
-    private String getLargestOfSmaller(int indexOfRange) {
-        if (indexOfRange < 0) return null;
-        if (null == gridList.elementAt(indexOfRange)) {
-            getLargestOfSmaller(indexOfRange - 1);
+    private String getLargestOfSmaller(int index) {
+        if (index < 0) return null;
+        if (null == gridList.elementAt(index)) {
+            getLargestOfSmaller(index - 1);
         } else {
-            Bucket bucket = deserializeBucket(gridList.elementAt(indexOfRange));
+            Bucket bucket = deserializeBucket(gridList.elementAt(index));
             while (!bucket.overFlow.equals("")) {
                 bucket = deserializeBucket(bucket.overFlow);
             }
@@ -368,9 +367,9 @@ public class GridIndex {
     }
 
     private String getSmallestOfLarger(int indexOfRange) {
-        if (indexOfRange > 9) return null;
+        if (indexOfRange > gridList.size()) return null;
         if (null == gridList.elementAt(indexOfRange)) {
-            getLargestOfSmaller(indexOfRange + 1);
+            getSmallestOfLarger(indexOfRange + 1);
         } else {
             Bucket bucket = deserializeBucket(gridList.elementAt(indexOfRange));
             return bucket.bucketBody.firstElement().getPageName();
