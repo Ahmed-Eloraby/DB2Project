@@ -959,33 +959,26 @@ public class DBApp implements DBAppInterface {
                     hs.add(s);
                 }
                 int gridIndextoUse = -1;
-                int commonColumns = 0, size = 0, pos = 0;
-                for (Vector<String> s : table.getGridIndicesColumns()) {
-                    int currentCommonCols = 0;
-                    for (String col : s) {
-                        hs.add(col);
-                        if (hs.size() > columnNameValue.size()) {
-                            hs.remove(col);
-                        } else {
-                            currentCommonCols++;
-                        }
-                    }
-                    if (commonColumns < currentCommonCols) {
-                        gridIndextoUse = pos;
-                        size = s.size();
-                        commonColumns = currentCommonCols;
-                    } else if (commonColumns == currentCommonCols) {
-                        if (size > s.size()) {
-                            gridIndextoUse = pos;
-                            size = s.size();
-                            commonColumns = currentCommonCols;
-                        }
-                    }
+                int pos = 0;
+                w:for (Vector<String> s : table.getGridIndicesColumns()) {
                     pos++;
+                    if(s.size()!= columnNameValue.size())
+                        continue w;
+                    for(String str: s){
+                        if(columnNameValue.get(s)==null){
+                            continue w;
+                        }
+                    }
+                    gridIndextoUse= pos-1;
+                    break;
                 }
                 if (gridIndextoUse != -1) {
                     GridIndex gridIndex = deserializeGridIndex(table.getGridIndices().elementAt(gridIndextoUse));
-                    pageNames = gridIndex.getNeededPageNames(columnNameValue);
+                    pageNames = gridIndex.getNeededPageNamesDelete(columnNameValue);
+                }
+                ArrayList<GridIndex> gi = new ArrayList<>();
+                for(String s: table.getGridIndices()){
+                    gi.add(deserializeGridIndex(s));
                 }
                 ArrayList<String> pagesToDelete = new ArrayList<>();
                 boolean deleted = false;
@@ -1007,6 +1000,9 @@ public class DBApp implements DBAppInterface {
                         }
                         //delete row:
                         page.removeElementAt(i);
+                        for(GridIndex g:gi){
+                            g.deleteFromGrid(tuple);
+                        }
                         deleted = true;
                     }
                     //update the page:
@@ -1023,6 +1019,9 @@ public class DBApp implements DBAppInterface {
                 if (!deleted) {
                     // throw new DBAppException("No record to delete");
                     return;
+                }
+                for(int i=0;i<gi.size();i++){
+                    serializeGridIndex(table.getGridIndices().elementAt(i),gi.get(i));
                 }
                 for (String s : pagesToDelete) {
                     File f = new File("src/main/resources/data/" + s + ".class");
@@ -1065,7 +1064,17 @@ public class DBApp implements DBAppInterface {
 
                         }
                     }
+                    ArrayList<GridIndex> gi = new ArrayList<>();
+                    for(String s: table.getGridIndices()){
+                        gi.add(deserializeGridIndex(s));
+                    }
+                    for(GridIndex g:gi){
+                        g.deleteFromGrid(mainPageBody.elementAt(keyIndex));
+                    }
                     mainPageBody.removeElementAt(keyIndex);
+                    for(int i=0;i<gi.size();i++){
+                        serializeGridIndex(table.getGridIndices().elementAt(i),gi.get(i));
+                    }
                     if (mainPageBody.isEmpty()) {
                         pageNames.removeElementAt(pageIndex);
                         table.getMinPageValue().removeElementAt(pageIndex);
@@ -1088,51 +1097,65 @@ public class DBApp implements DBAppInterface {
         }
 
     }
-    public Vector<Tuple> selectWithIndex(SQLTerm term) {
-        Table t = Des
-        for (Vector<String> s : term._strTableName.getGridIndicesColumns()) {
-            int currentCommonCols = 0;
-            for (String col : s) {
-                hs.add(col);
-                if (hs.size() > columnNameValue.size()) {
-                    hs.remove(col);
-                } else {
-                    currentCommonCols++;
-                }
-            }
-            if (commonColumns < currentCommonCols) {
-                gridIndextoUse = pos;
-                size = s.size();
-                commonColumns = currentCommonCols;
-            } else if (commonColumns == currentCommonCols) {
-                if (size > s.size()) {
-                    gridIndextoUse = pos;
-                    size = s.size();
-                    commonColumns = currentCommonCols;
+
+    public Vector<Tuple> selectWithIndex(SQLTerm sql) {
+        Table table = deserializeTableInfo(sql._strTableName);
+        Vector<Tuple> output = new Vector<>();
+        int minsize = table.getPageNames().size();
+        int pos = 0, postoUse = 0;
+        for (Vector<String> s : table.getGridIndicesColumns()) {
+            if (s.contains(sql._strColumnName)) {
+                if (s.size() < minsize) {
+                    postoUse = pos;
                 }
             }
             pos++;
         }
-        switch (term._strOperator) {
-            case "=":
 
-                break;
-            case "!=":
-
-                break;
-            case ">":
-
-                break;
-            case ">=":
-
-                break;
-            case "<":
-                break;
-            case "<=":
-
+        GridIndex g = deserializeGridIndex(table.getGridIndices().elementAt(postoUse));
+        Hashtable<String, Object> col = new Hashtable<>();
+        col.put(sql._strColumnName, sql._objValue);
+        Vector<String> pagena = g.getNeededPageNames(sql._strTableName, sql._strColumnName,(Comparable) sql._objValue, sql._strOperator);
+        for (String p : pagena) {
+            Vector<Tuple> tup = deserializePage(p);
+            for (Tuple t : tup) {
+                switch (sql._strOperator) {
+                    case "=":
+                        if (t.getEntries().get(sql._strColumnName).compareTo(sql._objValue) == 0) {
+                            output.insertElementAt(t,indexToInsertAt(t.getClusteringKey(), output));
+                        }
+                        break;
+                    case "<":
+                        if (t.getEntries().get(sql._strColumnName).compareTo(sql._objValue) < 0) {
+                            output.insertElementAt(t,indexToInsertAt(t.getClusteringKey(), output));
+                        }
+                        break;
+                    case ">":
+                        if (t.getEntries().get(sql._strColumnName).compareTo(sql._objValue) > 0) {
+                            output.insertElementAt(t,indexToInsertAt(t.getClusteringKey(), output));
+                        }
+                        break;
+                    case "<=":
+                        if (t.getEntries().get(sql._strColumnName).compareTo(sql._objValue) <= 0) {
+                            output.insertElementAt(t,indexToInsertAt(t.getClusteringKey(), output));
+                        }
+                        break;
+                    case ">=":
+                        if (t.getEntries().get(sql._strColumnName).compareTo(sql._objValue) >= 0) {
+                            output.insertElementAt(t,indexToInsertAt(t.getClusteringKey(), output));
+                        }
+                        break;
+                    case "!=":
+                        if (t.getEntries().get(sql._strColumnName).compareTo(sql._objValue) != 0) {
+                            output.insertElementAt(t,indexToInsertAt(t.getClusteringKey(), output));
+                        }
+                        break;
+                }
+            }
         }
-        return null;
+        return output;
     }
+
     public Vector<Tuple> selectWithoutIndex(SQLTerm term) {
         Table table = deserializeTableInfo(term._strTableName);
         Vector<String> p = table.getPageNames();
@@ -1294,44 +1317,45 @@ public class DBApp implements DBAppInterface {
 
         }
         Vector<Vector<Tuple>> sqlTermResults = new Vector<>();
-        for(SQLTerm s: sqlTerms){
-            if(checkIndexExist(s._strColumnName,s._strTableName)){
-                sqlTermResults.addElement(selectWithIndex(s));
-
-            }else{
+        for (SQLTerm s : sqlTerms) {
+            if (!checkIndexExist(s._strColumnName, s._strTableName)||s._strOperator.equals("!=")) {
                 sqlTermResults.addElement(selectWithoutIndex(s));
+
+            } else {
+
+                sqlTermResults.addElement(selectWithIndex(s));
             }
         }
         ArrayList<String> Operators = (ArrayList<String>) Arrays.asList(arrayOperators);
         //And
-        for(int i = 0; i< Operators.size();i++){
-            if(Operators.get(i).equals("AND")){
+        for (int i = 0; i < Operators.size(); i++) {
+            if (Operators.get(i).equals("AND")) {
                 Vector<Tuple> result1 = sqlTermResults.remove(i);
                 Vector<Tuple> result2 = sqlTermResults.remove(i);
-                Vector<Tuple> result = andVectors(result1,result2);
-                sqlTermResults.insertElementAt(result,i);
+                Vector<Tuple> result = andVectors(result1, result2);
+                sqlTermResults.insertElementAt(result, i);
                 Operators.remove(i);
                 i--;
             }
         }
         //OR
-        for(int i = 0; i< Operators.size();i++){
-            if(Operators.get(i).equals("OR")){
+        for (int i = 0; i < Operators.size(); i++) {
+            if (Operators.get(i).equals("OR")) {
                 Vector<Tuple> result1 = sqlTermResults.remove(i);
                 Vector<Tuple> result2 = sqlTermResults.remove(i);
-                Vector<Tuple> result = orVectors(result1,result2);
-                sqlTermResults.insertElementAt(result,i);
+                Vector<Tuple> result = orVectors(result1, result2);
+                sqlTermResults.insertElementAt(result, i);
                 Operators.remove(i);
                 i--;
             }
         }
         //XOR
-        for(int i = 0; i< Operators.size();i++){
-            if(Operators.get(i).equals("XOR")){
+        for (int i = 0; i < Operators.size(); i++) {
+            if (Operators.get(i).equals("XOR")) {
                 Vector<Tuple> result1 = sqlTermResults.remove(i);
                 Vector<Tuple> result2 = sqlTermResults.remove(i);
-                Vector<Tuple> result = xorVectors(result1,result2);
-                sqlTermResults.insertElementAt(result,i);
+                Vector<Tuple> result = xorVectors(result1, result2);
+                sqlTermResults.insertElementAt(result, i);
                 Operators.remove(i);
                 i--;
             }
@@ -1339,7 +1363,6 @@ public class DBApp implements DBAppInterface {
 
         return sqlTermResults.firstElement().iterator();
     }
-
 
 
     private void createTableInfo(String TableName) {

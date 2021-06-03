@@ -1,19 +1,22 @@
+import java.util.Hashtable;
+
 public class BucketEntry implements Comparable {
     private String pageName;
-    private Comparable clusteringKey,columnValue;
+    private Comparable clusteringKey/*,columnValue*/;
+    private Hashtable<String,Comparable> columnvalues;
 
     public void setPageName(String pageName) {
         this.pageName = pageName;
     }
 
-    public BucketEntry(Comparable clusteringKey, String pageName,Comparable columnValue) {
+    public BucketEntry(Comparable clusteringKey, String pageName,Hashtable<String,Comparable> columnvalues) {
         this.pageName = pageName;
         this.clusteringKey = clusteringKey;
-        this.columnValue = columnValue;
+        this.columnvalues = columnvalues;
     }
 
-    public Comparable getColumnValue() {
-        return columnValue;
+    public Hashtable<String, Comparable> getColumnvalues() {
+        return columnvalues;
     }
 
     public String getPageName() {
