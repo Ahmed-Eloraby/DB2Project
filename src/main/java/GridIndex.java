@@ -299,7 +299,7 @@ public class GridIndex implements Serializable {
         }
         int index = getIndexInGrid(ht);
         String bucketName = gridList.get(index);
-        while (bucketName != null) {
+        while (!bucketName.isEmpty()) {
             Bucket b = deserializeBucket(bucketName);
             r:
             for (BucketEntry be : b.bucketBody) {
@@ -456,7 +456,7 @@ public class GridIndex implements Serializable {
     }
 
     private void getLessValue(String colName, Comparable colValue, HashSet<String> pageNames, String bucketName) {
-        if (bucketName != null) {
+        if (!bucketName.isEmpty()) {
             Bucket bucket = deserializeBucket(bucketName);
             for (BucketEntry be : bucket.bucketBody) {
                 if (be.getColumnvalues().get(colName).compareTo(colValue) < 0) {
@@ -468,7 +468,7 @@ public class GridIndex implements Serializable {
     }
 
     private void getmoreValue(String colName, Comparable colValue, HashSet<String> pageNames, String bucketName) {
-        if (bucketName != null) {
+        if (!bucketName.isEmpty()) {
             Bucket bucket = deserializeBucket(bucketName);
             for (BucketEntry be : bucket.bucketBody) {
                 if (be.getColumnvalues().get(colName).compareTo(colValue) > 0) {
@@ -480,7 +480,7 @@ public class GridIndex implements Serializable {
     }
 
     private void getLessEqualValue(String colName, Comparable colValue, HashSet<String> pageNames, String bucketName) {
-        if (bucketName != null) {
+        if (!bucketName.isEmpty()) {
             Bucket bucket = deserializeBucket(bucketName);
             for (BucketEntry be : bucket.bucketBody) {
                 if (be.getColumnvalues().get(colName).compareTo(colValue) <= 0) {
@@ -492,7 +492,7 @@ public class GridIndex implements Serializable {
     }
 
     private void getmoreEqualValue(String colName, Comparable colValue, HashSet<String> pageNames, String bucketName) {
-        if (bucketName != null) {
+        if (!bucketName.isEmpty()) {
             Bucket bucket = deserializeBucket(bucketName);
             for (BucketEntry be : bucket.bucketBody) {
                 if (be.getColumnvalues().get(colName).compareTo(colValue) >= 0) {
