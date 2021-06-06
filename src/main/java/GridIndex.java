@@ -11,7 +11,7 @@ public class GridIndex implements Serializable {
     }
 
     private String pk;
-    private String tableName;
+    private  String tableName;
 
     private Vector<String> gridList;
 
@@ -184,7 +184,7 @@ public class GridIndex implements Serializable {
     public void updatePageName(Tuple tuple, String pageName) {
         int index = getIndexInGrid(tuple.getEntries());
         Bucket bucket = deserializeBucket(gridList.elementAt(index));
-        while (bucket.bucketBody.size() == DBApp.B && bucket.bucketBody.lastElement().getClusteringKey().compareTo(tuple.getClusteringKey()) < 0) {
+        while (!bucket.overFlow.isEmpty()&& bucket.bucketBody.size() == DBApp.B && bucket.bucketBody.lastElement().getClusteringKey().compareTo(tuple.getClusteringKey()) < 0) {
             bucket = deserializeBucket(bucket.overFlow);
         }
         bucket.bucketBody.elementAt(getBucketEntryIndex(bucket, tuple.getClusteringKey())).setPageName(pageName);
@@ -244,7 +244,7 @@ public class GridIndex implements Serializable {
         }
     }
 
-    private Bucket deserializeBucket(String name) {
+    public Bucket deserializeBucket(String name) {
         Bucket b = null;
         try {
             FileInputStream filein = new FileInputStream("src/main/resources/data/" + name + ".class");
@@ -271,7 +271,7 @@ public class GridIndex implements Serializable {
 
     private BucketEntry getBucketEntry(int index, Comparable key) {
         Bucket bucket = deserializeBucket(gridList.elementAt(index));
-        while (bucket.bucketBody.size() == DBApp.B && bucket.bucketBody.lastElement().getClusteringKey().compareTo(key) < 0) {
+        while (!bucket.overFlow.isEmpty()&& bucket.bucketBody.size() == DBApp.B && bucket.bucketBody.lastElement().getClusteringKey().compareTo(key) < 0) {
             bucket = deserializeBucket(bucket.overFlow);
         }
         return bucket.bucketBody.elementAt(getBucketEntryIndex(bucket, key));
@@ -322,10 +322,10 @@ public class GridIndex implements Serializable {
         Hashtable<String, Comparable> ht = new Hashtable<>();
         ht.put(pk, clusteringKey);
         int index = getIndexInGrid(ht);
-        if (gridList.elementAt(index) != null) {
+        if (!gridList.elementAt(index).isEmpty()) {
             Bucket bucket = deserializeBucket(gridList.elementAt(index));
             Bucket prevBucket = null;
-            while (bucket.bucketBody.size() == DBApp.B && bucket.bucketBody.lastElement().getClusteringKey().compareTo(clusteringKey) < 0) {
+            while (!bucket.overFlow.isEmpty() && bucket.bucketBody.size() == DBApp.B && bucket.bucketBody.lastElement().getClusteringKey().compareTo(clusteringKey) < 0) {
                 prevBucket = bucket;
                 bucket = deserializeBucket(bucket.overFlow);
             }
@@ -506,9 +506,7 @@ public class GridIndex implements Serializable {
     private void getEqualValue(String colName, Comparable colValue, HashSet<String> pageNames, String bucketName) {
        if (bucketName.isEmpty())
            return;
-            System.out.println(bucketName);
             Bucket bucket = deserializeBucket(bucketName);
-            System.out.println(bucket);
             for (BucketEntry be : bucket.bucketBody) {
                 if (be.getColumnvalues().get(colName).compareTo(colValue) == 0) {
                     pageNames.add(be.getPageName());

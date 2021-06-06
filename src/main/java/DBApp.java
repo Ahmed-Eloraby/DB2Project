@@ -40,9 +40,11 @@ public class DBApp implements DBAppInterface {
 //                e.printStackTrace();
 //            }
 //        }
+
         String strTableName = "Student";
         DBApp dbApp = new DBApp();
-//       dbApp.init();
+        dbApp.printAllGridOfTable(strTableName);
+        //        dbApp.init();
 //        Hashtable<String,String>  htblColNameType= new Hashtable<>();
 //        Hashtable<String,String>  htblColNameMin = new Hashtable<>();
 //        Hashtable<String,String>  htblColNameMax = new Hashtable<>();
@@ -59,6 +61,10 @@ public class DBApp implements DBAppInterface {
 //        htblColNameMax.put("name", "zzzzzzzzzzz");
 //        htblColNameMax.put("gpa", "4.0");
 //        dbApp.createTable(strTableName, "id", htblColNameType, htblColNameMin, htblColNameMax);
+//        String[] g = {"id"};
+//        dbApp.createIndex(strTableName,g);
+//        g= new String[]{"bd", "gpa"};
+//        dbApp.createIndex(strTableName,g);
 //        Hashtable<String,Object> tobeinserted  =new Hashtable<>();
 //        tobeinserted.put("id",22);
 //        tobeinserted.put("name","Omar");
@@ -90,9 +96,14 @@ public class DBApp implements DBAppInterface {
 //        tobeinserted.put("bd",new Date(1930-1900,01,01));
 //        dbApp.insertIntoTable(strTableName,tobeinserted);
 //        tobeinserted.clear();
-//        String[] g = {"bd","gpa"};
-//        dbApp.createIndex(strTableName,g);
-        System.out.println(dbApp.deserializeTableInfo("students"));
+//        dbApp.printAllTuplesOfTable(strTableName);
+//        Hashtable<String,Object> ho= new Hashtable<>();
+//        ho.put("bd",new Date(1930-1900,01,01));
+//        ho.put("gpa",2.6);
+//        dbApp.deleteFromTable(strTableName,ho);
+
+
+    //    dbApp.printAllGridOfTable(strTableName);
 //        SQLTerm sql = new SQLTerm(strTableName, "gpa", "<=", 2.6);
 //        SQLTerm[] arrsql = {sql};
 //        String[] operator = new String[0];
@@ -135,7 +146,23 @@ public class DBApp implements DBAppInterface {
         System.out.println("Total number of Tuples = " + n);
     }
 
-    @Override
+    public void printAllGridOfTable(String name) {
+        Table t = deserializeTableInfo(name);
+        for(String g: t.getGridIndices()){
+            System.out.println(g+":");
+            GridIndex gi = deserializeGridIndex(g);
+            System.out.println(gi);
+            for(String b :gi.getGridList()){
+                if(!b.isEmpty()){
+                    System.out.println("Bucket: " + b);
+                    System.out.println(gi.deserializeBucket(b));
+                }
+            }
+        }
+    }
+
+
+        @Override
     public void init() {
         Properties prop = new Properties();
         String fileName = "src/main/resources/DBApp.config";
@@ -601,8 +628,9 @@ public class DBApp implements DBAppInterface {
                 serializePage(newPageName, newPageBody);
                 for (String g : table.getGridIndices()) {
                     GridIndex gi = deserializeGridIndex(g);
+                    System.out.println(gi);
                     gi.insertInGrid(newEntry, newPageName);
-
+                    serializeGridIndex(g,gi);
                 }
                 serializeTableInfo(tableName, table);
 
@@ -646,6 +674,7 @@ public class DBApp implements DBAppInterface {
                 for (String g : table.getGridIndices()) {
                     GridIndex gi = deserializeGridIndex(g);
                     gi.insertInGrid(newEntry, pageName);
+                    serializeGridIndex(g,gi);
                 }
                 table.getMinPageValue().setElementAt(page.firstElement().getClusteringKey(), pageIndex);
             } else {
@@ -656,6 +685,7 @@ public class DBApp implements DBAppInterface {
                     for (String g : table.getGridIndices()) {
                         GridIndex gi = deserializeGridIndex(g);
                         gi.insertInGrid(newEntry, pageName);
+                        serializeGridIndex(g,gi);
                     }
                     Vector<Tuple> firstHalf = new Vector<>(page.subList(0, (page.size()) / 2));
                     Vector<Tuple> secondHalf = new Vector<>(page.subList((page.size()) / 2, page.size()));

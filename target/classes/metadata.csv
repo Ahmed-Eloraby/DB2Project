@@ -1,0 +1,5 @@
+Table Name,Column Name,Column Type,ClusteringKey,Indexed,min,max
+Student,gpa,java.lang.Double,false,true,0.7,4.0
+Student,name,java.lang.String,false,false,AAAAAAAAAAA,zzzzzzzzzzz
+Student,bd,java.util.Date,false,true,1900-01-01,2100-12-31
+Student,id,java.lang.Integer,true,true,0,999999
