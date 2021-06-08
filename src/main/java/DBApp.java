@@ -43,8 +43,11 @@ public class DBApp implements DBAppInterface {
 
         String strTableName = "students";
         DBApp dbApp = new DBApp();
-        System.out.println(dbApp.deserializeTableInfo(strTableName));
-//                dbApp.init();
+        dbApp.createIndex(strTableName,new String[]{"gpa"});
+      //  Hashtable<String,Object> ht = new Hashtable<>();ht.put("gpa",0.85);
+//        ht.put("dob",new Date(2022-1900,01,01));
+       // dbApp.deleteFromTable(strTableName,ht);
+        //                dbApp.init();
 //        Hashtable<String,String>  htblColNameType= new Hashtable<>();
 //        Hashtable<String,String>  htblColNameMin = new Hashtable<>();
 //        Hashtable<String,String>  htblColNameMax = new Hashtable<>();
@@ -360,7 +363,6 @@ public class DBApp implements DBAppInterface {
                         if (line[3].equals("true")) {
                             primaryKey = line[1];
                         }
-                        System.out.println(Arrays.toString(line));
                         ColNames.add(line[1]);
                         colType.put(line[1], line[2]);
                         colMin.put(line[1], line[5]);

@@ -280,6 +280,8 @@ public class GridIndex implements Serializable {
     public void changeBucket(Tuple old, Tuple neo, String pagename) {
         int oldindex = getIndexInGrid(old.getEntries());
         int neoindex = getIndexInGrid(neo.getEntries());
+        System.out.println(oldindex);
+        System.out.println(neoindex);
         if (oldindex != neoindex) {
             deleteFromRange(oldindex, old.getClusteringKey());
             insertInRange(neoindex, neo.getClusteringKey(), neo.getEntries(), pagename);
