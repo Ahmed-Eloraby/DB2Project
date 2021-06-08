@@ -41,10 +41,10 @@ public class DBApp implements DBAppInterface {
 //            }
 //        }
 
-        String strTableName = "Student";
+        String strTableName = "students";
         DBApp dbApp = new DBApp();
-        dbApp.printAllGridOfTable(strTableName);
-        //        dbApp.init();
+        System.out.println(dbApp.deserializeTableInfo(strTableName));
+//                dbApp.init();
 //        Hashtable<String,String>  htblColNameType= new Hashtable<>();
 //        Hashtable<String,String>  htblColNameMin = new Hashtable<>();
 //        Hashtable<String,String>  htblColNameMax = new Hashtable<>();
@@ -100,8 +100,11 @@ public class DBApp implements DBAppInterface {
 //        Hashtable<String,Object> ho= new Hashtable<>();
 //        ho.put("bd",new Date(1930-1900,01,01));
 //        ho.put("gpa",2.6);
+//        dbApp.printAllTuplesOfTable(strTableName);
+//        dbApp.printAllGridOfTable(strTableName);
 //        dbApp.deleteFromTable(strTableName,ho);
-
+//        dbApp.printAllTuplesOfTable(strTableName);
+//        dbApp.printAllGridOfTable(strTableName);
 
     //    dbApp.printAllGridOfTable(strTableName);
 //        SQLTerm sql = new SQLTerm(strTableName, "gpa", "<=", 2.6);
@@ -152,6 +155,8 @@ public class DBApp implements DBAppInterface {
             System.out.println(g+":");
             GridIndex gi = deserializeGridIndex(g);
             System.out.println(gi);
+            for(Vector<Comparable> r:gi.getColumnRanges())
+                System.out.println(r);
             for(String b :gi.getGridList()){
                 if(!b.isEmpty()){
                     System.out.println("Bucket: " + b);
@@ -865,8 +870,6 @@ public class DBApp implements DBAppInterface {
                         pageName = gridIndex.getPageNameFromIndex(primary);
                         pageIndex = table.getPageNames().indexOf(pageName);
                     } else {
-
-
                         pageIndex = getPageIndex(primary, table.getMinPageValue());
                         pageName = table.getPageNames().elementAt(pageIndex);
                     }
@@ -886,6 +889,15 @@ public class DBApp implements DBAppInterface {
                     Tuple neo = page.elementAt(keyIndex);
                     serializePage(pageName, page);
                     for (int i = 0; i < table.getGridIndices().size(); i++) {
+                        boolean update = false;
+                        for(String s: colNameValue.keySet()){
+                            if(table.getGridIndicesColumns().elementAt(i).contains(s)) {
+                                update = true;
+                                break;
+                            }
+                        }
+                        if(!update)
+                            continue;
                         GridIndex x = deserializeGridIndex(table.getGridIndices().elementAt(i));
                         x.changeBucket(old, neo, pageName);
                         serializeGridIndex(table.getGridIndices().elementAt(i), x);
@@ -937,6 +949,15 @@ public class DBApp implements DBAppInterface {
                     Tuple neo = page.elementAt(keyIndex);
                     serializePage(pageName, page);
                     for (int i = 0; i < table.getGridIndices().size(); i++) {
+                        boolean update = false;
+                        for(String s: colNameValue.keySet()){
+                            if(table.getGridIndicesColumns().elementAt(i).contains(s)) {
+                                update = true;
+                                break;
+                            }
+                        }
+                        if(!update)
+                            continue;
                         GridIndex x = deserializeGridIndex(table.getGridIndices().elementAt(i));
                         x.changeBucket(old, neo, pageName);
                         serializeGridIndex(table.getGridIndices().elementAt(i), x);
@@ -982,6 +1003,15 @@ public class DBApp implements DBAppInterface {
                     Tuple neo = page.elementAt(keyIndex);
                     serializePage(pageName, page);
                     for (int i = 0; i < table.getGridIndices().size(); i++) {
+                        boolean update = false;
+                        for(String s: colNameValue.keySet()){
+                            if(table.getGridIndicesColumns().elementAt(i).contains(s)) {
+                                update = true;
+                                break;
+                            }
+                        }
+                        if(!update)
+                            continue;
                         GridIndex x = deserializeGridIndex(table.getGridIndices().elementAt(i));
                         x.changeBucket(old, neo, pageName);
                         serializeGridIndex(table.getGridIndices().elementAt(i), x);
@@ -1030,6 +1060,15 @@ public class DBApp implements DBAppInterface {
                         Tuple neo = page.elementAt(keyIndex);
                         serializePage(pageName, page);
                         for (int i = 0; i < table.getGridIndices().size(); i++) {
+                            boolean update = false;
+                            for(String s: colNameValue.keySet()){
+                                if(table.getGridIndicesColumns().elementAt(i).contains(s)) {
+                                    update = true;
+                                    break;
+                                }
+                            }
+                            if(!update)
+                                continue;
                             GridIndex x = deserializeGridIndex(table.getGridIndices().elementAt(i));
                             x.changeBucket(old, neo, pageName);
                             serializeGridIndex(table.getGridIndices().elementAt(i), x);
@@ -1419,11 +1458,10 @@ public class DBApp implements DBAppInterface {
         Vector<Vector<Tuple>> sqlTermResults = new Vector<>();
         for (SQLTerm s : sqlTerms) {
             if (!checkIndexExist(s._strColumnName, s._strTableName) || s._strOperator.equals("!=")) {
-                System.out.println("here");
-
+                System.out.println("without index");
                 sqlTermResults.addElement(selectWithoutIndex(s));
             } else {
-
+                System.out.println("with index");
                 sqlTermResults.addElement(selectWithIndex(s));
             }
         }
@@ -1466,7 +1504,7 @@ public class DBApp implements DBAppInterface {
                 i--;
             }
         }
-
+        System.out.println(sqlTermResults.firstElement());
         return sqlTermResults.firstElement().iterator();
     }
 
